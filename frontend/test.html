@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RehabAI — กายภาพบำบัด</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────── */
+:root {
+  --bg:       #f7f5f0;
+  --surface:  #fdfcf9;
+  --surface2: #f0ede6;
+  --border:   #e4dfd7;
+  --border2:  #cfc9be;
+  --text:     #1c1a16;
+  --text2:    #58524a;
+  --text3:    #9c9488;
+  --green:    #2d6a4f;
+  --green2:   #40916c;
+  --green3:   #74c69d;
+  --greenl:   #d8f3dc;
+  --greenb:   #b7e4c7;
+  --amber:    #92400e;
+  --amberl:   #fef3c7;
+  --red:      #7f1d1d;
+  --redl:     #fee2e2;
+  --ff: 'Sarabun', sans-serif;
+  --fm: 'IBM Plex Mono', monospace;
+  --r: 16px; --r2: 10px; --r3: 6px;
+  --ease: cubic-bezier(.34,1.56,.64,1);
+  --t: 0.22s ease;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:15px;scroll-behavior:smooth;}
+body{font-family:var(--ff);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+
+/* ── LOADER ── */
+#loader{position:fixed;inset:0;background:var(--surface);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;transition:opacity .4s;}
+#loader.hide{opacity:0;pointer-events:none;}
+.spin{width:32px;height:32px;border:2.5px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loaderTxt{font-size:.875rem;color:var(--text3);font-weight:500;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:1.75rem;left:50%;transform:translateX(-50%) translateY(20px);z-index:9997;
+  background:var(--text);color:#fff;border-radius:100px;padding:.65rem 1.5rem;
+  font-size:.875rem;font-weight:600;opacity:0;transition:all .35s var(--ease);pointer-events:none;white-space:nowrap;}
+#toast.on{transform:translateX(-50%) translateY(0);opacity:1;}
+#toast.ok{background:var(--green);}#toast.err{background:var(--red);}#toast.warn{background:var(--amber);}
+.hide{display:none!important;}
+
+/* ── AUTH ── */
+#authScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;
+  background:radial-gradient(ellipse 80% 60% at 50% -10%, #d8f3dc 0%, transparent 70%), var(--bg);}
+.auth-wrap{width:100%;max-width:420px;animation:fadeUp .5s var(--ease) both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.auth-brand{margin-bottom:1.75rem;text-align:center;}
+.auth-logo{width:48px;height:48px;background:var(--green);border-radius:14px;margin:0 auto .875rem;
+  display:flex;align-items:center;justify-content:center;}
+.auth-logo svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;}
+.auth-brand h1{font-size:1.625rem;font-weight:800;letter-spacing:-.5px;color:var(--text);}
+.auth-brand h1 span{color:var(--green);}
+.auth-brand p{font-size:.875rem;color:var(--text3);margin-top:.3rem;}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.75rem;}
+.atabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem;gap:.25rem;}
+.atab{flex:1;padding:.6rem 0;text-align:center;font-size:.875rem;font-weight:700;color:var(--text3);
+  cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:all var(--t);}
+.atab.on{color:var(--green);border-bottom-color:var(--green);}
+.err-msg{background:var(--redl);color:var(--red);border:1px solid #fca5a5;border-radius:var(--r2);
+  padding:.6rem .875rem;font-size:.8125rem;margin-bottom:1rem;display:none;}
+.err-msg.on{display:block;}
+.fg{margin-bottom:.875rem;}
+.fg label{display:block;font-size:.8125rem;font-weight:700;color:var(--text2);margin-bottom:.3rem;}
+.fg input,.fg select{width:100%;padding:.65rem .9rem;border:1.5px solid var(--border);border-radius:var(--r2);
+  font-family:var(--ff);font-size:.9375rem;color:var(--text);background:var(--bg);outline:none;transition:border-color var(--t);}
+.fg input:focus,.fg select:focus{border-color:var(--green);background:var(--surface);}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+.btn-primary{width:100%;padding:.75rem;background:var(--green);color:#fff;border:none;border-radius:var(--r2);
+  font-family:var(--ff);font-size:1rem;font-weight:700;cursor:pointer;transition:all var(--t);letter-spacing:.2px;}
+.btn-primary:hover{background:var(--green2);transform:translateY(-1px);}
+.btn-primary:active{transform:none;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.auth-footer{text-align:center;margin-top:1rem;}
+.auth-footer a{font-size:.8125rem;color:var(--green);cursor:pointer;font-weight:600;}
+.auth-footer a:hover{color:var(--green2);}
+
+/* ── APP SHELL ── */
+#appScreen{display:none;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 1.5rem;height:58px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;}
+.topbar-brand{font-size:1.0625rem;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:.5rem;}
+.brand-dot{width:8px;height:8px;background:var(--green3);border-radius:50%;animation:pulse 2.5s ease infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.6}}
+.topbar-nav{display:flex;gap:.25rem;}
+.tnav{padding:.4rem .9rem;border-radius:var(--r2);font-size:.875rem;font-weight:600;color:var(--text3);
+  cursor:pointer;transition:all var(--t);border:1.5px solid transparent;}
+.tnav:hover{color:var(--text);background:var(--surface2);}
+.tnav.on{color:var(--green);background:var(--greenl);border-color:var(--greenb);}
+.topbar-right{display:flex;align-items:center;gap:.75rem;}
+.user-chip{display:flex;align-items:center;gap:.5rem;}
+.user-av{width:30px;height:30px;background:var(--green);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:.75rem;font-weight:800;}
+.user-name{font-size:.8125rem;font-weight:600;color:var(--text2);}
+.btn-logout{padding:.375rem .75rem;border-radius:var(--r2);border:1.5px solid var(--border);
+  background:transparent;color:var(--text3);font-family:var(--ff);font-size:.8125rem;cursor:pointer;transition:all var(--t);}
+.btn-logout:hover{border-color:var(--red);color:var(--red);}
+.pg{display:none;}
+.pg.on{display:block;}
+
+/* ══════════════════════════════
+   DASHBOARD
+══════════════════════════════ */
+.dash{padding:2rem 1.5rem;max-width:1180px;margin:0 auto;}
+.dash-header{margin-bottom:2rem;}
+.dash-header h2{font-size:1.5rem;font-weight:800;letter-spacing:-.5px;}
+.dash-header p{font-size:.9375rem;color:var(--text3);margin-top:.25rem;}
+
+/* Progress Summary Bar */
+.progress-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:2rem;}
+.pstat{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:1.125rem 1rem;position:relative;overflow:hidden;transition:all var(--t);}
+.pstat:hover{border-color:var(--greenb);transform:translateY(-2px);}
+.pstat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--border);border-radius:100px;}
+.pstat.active::before{background:linear-gradient(90deg,var(--green),var(--green3));}
+.pstat-num{font-size:1.875rem;font-weight:800;color:var(--text);font-family:var(--fm);line-height:1;margin-bottom:.25rem;}
+.pstat-lbl{font-size:.75rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+
+/* Weekly Progress */
+.progress-week-wrap{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:1.25rem;margin-bottom:2rem;}
+.pw-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.125rem;}
+.pw-title{font-size:.875rem;font-weight:700;color:var(--text);}
+.pw-subtitle{font-size:.75rem;color:var(--text3);}
+.week-bars{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;align-items:end;height:70px;}
+.wbar-col{display:flex;flex-direction:column;align-items:center;gap:.3rem;height:100%;justify-content:flex-end;}
+.wbar{width:100%;border-radius:4px 4px 0 0;background:var(--border);min-height:4px;transition:height .6s var(--ease);position:relative;overflow:hidden;}
+.wbar.has-data{background:var(--greenb);}
+.wbar.today{background:var(--green);}
+.wbar-fill{position:absolute;bottom:0;left:0;right:0;background:var(--green);border-radius:inherit;}
+.wbar-day{font-size:.6875rem;font-weight:600;color:var(--text3);}
+.wbar-day.today{color:var(--green);font-weight:800;}
+
+/* Achievement badges */
+.achievements-row{display:flex;gap:.625rem;flex-wrap:wrap;margin-bottom:2rem;}
+.badge{display:flex;align-items:center;gap:.4rem;padding:.4rem .875rem;border-radius:100px;
+  border:1.5px solid var(--border);background:var(--surface);font-size:.75rem;font-weight:700;
+  color:var(--text3);transition:all var(--t);}
+.badge.earned{border-color:var(--greenb);background:var(--greenl);color:var(--green);}
+.badge-dot{width:7px;height:7px;border-radius:50%;background:var(--border2);}
+.badge.earned .badge-dot{background:var(--green);}
+
+.section-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--text3);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── EXERCISE CARDS ── */
+.ex-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.125rem;}
+.ex-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);
+  cursor:pointer;transition:all .3s var(--ease);overflow:hidden;display:flex;flex-direction:column;
+  animation:fadeUp .4s var(--ease) both;}
+.ex-card:nth-child(1){animation-delay:.05s}
+.ex-card:nth-child(2){animation-delay:.1s}
+.ex-card:nth-child(3){animation-delay:.15s}
+.ex-card:nth-child(4){animation-delay:.2s}
+.ex-card:nth-child(5){animation-delay:.25s}
+.ex-card:nth-child(6){animation-delay:.3s}
+.ex-card:nth-child(7){animation-delay:.35s}
+.ex-card:nth-child(8){animation-delay:.4s}
+.ex-card:hover{border-color:var(--green);transform:translateY(-4px);box-shadow:0 12px 32px rgba(45,106,79,.12);}
+.ex-card:active{transform:translateY(-2px);}
+
+/* Illustration area */
+.ex-illus{height:130px;position:relative;overflow:hidden;background:var(--greenl);
+  display:flex;align-items:center;justify-content:center;}
+.ex-illus svg{width:auto;height:110px;transition:transform .4s var(--ease);}
+.ex-card:hover .ex-illus svg{transform:scale(1.06) translateY(-3px);}
+.ex-illus-bg{position:absolute;inset:0;opacity:.15;}
+.ex-done-ring{position:absolute;top:.5rem;right:.5rem;
+  width:24px;height:24px;border-radius:50%;background:var(--green);
+  display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .3s;}
+.ex-done-ring.show{opacity:1;}
+.ex-done-ring svg{width:12px;height:12px;stroke:#fff;stroke-width:2.5;fill:none;}
+
+.ex-body{padding:1rem;flex-grow:1;display:flex;flex-direction:column;gap:.5rem;}
+.ex-type-tag{display:inline-flex;align-items:center;gap:.3rem;font-size:.6875rem;font-weight:700;
+  padding:.2rem .5rem;border-radius:100px;font-family:var(--fm);}
+.ex-type-tag.hold{background:var(--amberl);color:var(--amber);border:1px solid #fcd34d;}
+.ex-type-tag.rep{background:var(--greenl);color:var(--green);border:1px solid var(--greenb);}
+.ex-name{font-size:.9375rem;font-weight:700;line-height:1.3;color:var(--text);}
+.ex-desc{font-size:.8125rem;color:var(--text3);line-height:1.5;flex-grow:1;}
+
+/* Mini progress bar on card */
+.ex-progress-bar{height:3px;background:var(--border);border-radius:100px;overflow:hidden;margin-top:.25rem;}
+.ex-progress-fill{height:100%;background:var(--green);border-radius:100px;transition:width .5s var(--ease);}
+
+.ex-footer{padding:.75rem 1rem;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;background:var(--bg);}
+.ex-stats-mini{font-size:.75rem;color:var(--text3);font-weight:500;}
+.btn-start{font-size:.8125rem;font-weight:700;color:var(--green);background:none;
+  border:none;cursor:pointer;padding:0;font-family:var(--ff);transition:color var(--t);}
+.btn-start:hover{color:var(--green2);}
+
+/* ══════════════════════════════
+   PROGRESS PAGE
+══════════════════════════════ */
+.prog-pg{padding:2rem 1.5rem;max-width:960px;margin:0 auto;}
+.prog-header{margin-bottom:2rem;}
+.prog-header h2{font-size:1.5rem;font-weight:800;letter-spacing:-.5px;}
+.prog-header p{font-size:.875rem;color:var(--text3);margin-top:.25rem;}
+
+.prog-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem;}
+.prog-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:1.25rem;}
+.prog-card-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:1rem;}
+
+/* Score timeline chart */
+.chart-wrap{position:relative;height:120px;margin-top:.5rem;}
+.chart-svg{width:100%;height:100%;overflow:visible;}
+
+/* Per-exercise breakdown */
+.ex-breakdown{display:flex;flex-direction:column;gap:.625rem;}
+.exb-item{display:flex;align-items:center;gap:.875rem;}
+.exb-name{font-size:.8125rem;font-weight:600;color:var(--text2);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.exb-bar-bg{flex:1;height:8px;background:var(--border);border-radius:100px;overflow:hidden;}
+.exb-bar-fill{height:100%;background:var(--green);border-radius:100px;transition:width .8s var(--ease);}
+.exb-val{font-size:.75rem;font-weight:700;color:var(--green);font-family:var(--fm);width:32px;text-align:right;}
+
+/* Streak calendar */
+.streak-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.sday{aspect-ratio:1;border-radius:4px;background:var(--border);transition:all .2s;}
+.sday.done{background:var(--greenb);}
+.sday.done.good{background:var(--green);}
+.sday-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;}
+.sday-lbl{font-size:.6rem;text-align:center;color:var(--text3);font-weight:700;}
+
+/* Big achievement grid */
+.ach-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;}
+.ach-item{border:1.5px solid var(--border);border-radius:var(--r2);padding:.875rem;text-align:center;transition:all var(--t);}
+.ach-item.earned{border-color:var(--greenb);background:var(--greenl);}
+.ach-icon{font-size:1.625rem;margin-bottom:.4rem;opacity:.3;filter:grayscale(1);transition:all .3s;}
+.ach-item.earned .ach-icon{opacity:1;filter:none;}
+.ach-name{font-size:.6875rem;font-weight:700;color:var(--text3);}
+.ach-item.earned .ach-name{color:var(--green);}
+.ach-desc{font-size:.625rem;color:var(--text3);margin-top:.2rem;line-height:1.4;}
+
+/* ══════════════════════════════
+   CAMERA / EXERCISE PAGE
+══════════════════════════════ */
+.ex-pg{padding:1.5rem;max-width:1260px;margin:0 auto;}
+.ex-pg-nav{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;}
+.btn-back{padding:.45rem .9rem;border-radius:var(--r2);border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text2);font-family:var(--ff);font-size:.875rem;
+  font-weight:600;cursor:pointer;transition:all var(--t);}
+.btn-back:hover{border-color:var(--green);color:var(--green);}
+.ex-pg-title{font-size:1.0625rem;font-weight:800;}
+.ex-pg-sub{font-size:.8125rem;color:var(--text3);margin-top:.1rem;}
+.ex-layout{display:grid;grid-template-columns:1fr 400px;gap:1.25rem;align-items:start;}
+
+/* Video */
+.vid-container{background:#0f1a12;border-radius:var(--r);overflow:hidden;position:relative;aspect-ratio:4/3;}
+#vidEl{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);}
+#poseCanvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);}
+.vid-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;color:rgba(255,255,255,.3);}
+.vid-placeholder p{font-size:.875rem;}
+.cam-status{position:absolute;top:.75rem;left:.75rem;display:flex;align-items:center;gap:.5rem;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border-radius:100px;padding:.3rem .75rem;}
+.cam-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);}
+.cam-dot.on{background:#4ade80;animation:blink 1.8s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cam-status-txt{font-size:.75rem;color:rgba(255,255,255,.55);}
+.ai-badge{position:absolute;top:.75rem;right:.75rem;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);
+  border-radius:100px;padding:.3rem .75rem;font-size:.75rem;color:rgba(255,255,255,.65);display:none;}
+.feedback-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(10,22,14,.82);
+  backdrop-filter:blur(10px);padding:1rem 1.25rem;border-top:2.5px solid rgba(255,255,255,.08);transition:border-color .3s;}
+.feedback-bar.good{border-top-color:#4ade80;}
+.feedback-bar.warn{border-top-color:#fbbf24;}
+.feedback-bar.bad{border-top-color:#f87171;}
+.fb-label{font-size:.6875rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem;}
+.fb-text{font-size:1.0625rem;font-weight:700;color:#fff;}
+.fb-text.good{color:#86efac;}.fb-text.warn{color:#fde68a;}.fb-text.bad{color:#fca5a5;}
+.cam-controls{display:flex;gap:.625rem;margin-top:.875rem;}
+.ctrl-btn{flex:1;padding:.65rem 1rem;border-radius:var(--r2);font-family:var(--ff);
+  font-size:.875rem;font-weight:600;cursor:pointer;transition:all var(--t);
+  border:1.5px solid var(--border);background:var(--surface);color:var(--text2);}
+.ctrl-btn:hover{border-color:var(--green);color:var(--green);background:var(--greenl);}
+.ctrl-btn.prim{background:var(--green);border-color:var(--green);color:#fff;}
+.ctrl-btn.prim:hover{background:var(--green2);border-color:var(--green2);}
+.ctrl-btn.danger{color:var(--red);}
+.ctrl-btn.danger:hover{border-color:#fca5a5;background:var(--redl);}
+.ctrl-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+/* Right info col */
+.info-col{display:flex;flex-direction:column;gap:.875rem;}
+.panel{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:1.25rem;}
+.panel-title{font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:.875rem;}
+
+/* Status panel */
+.panel-status{border-width:2px;transition:border-color .3s,background .3s;}
+.panel-status.good{border-color:var(--greenb);background:var(--greenl);}
+.panel-status.warn{border-color:#fcd34d;background:var(--amberl);}
+.panel-status.bad{border-color:#fca5a5;background:var(--redl);}
+.status-label{font-size:.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:.4rem;}
+.status-text{font-size:1.25rem;font-weight:700;line-height:1.25;color:var(--text);margin-bottom:.35rem;}
+.panel-status.good .status-text{color:var(--green);}
+.panel-status.warn .status-text{color:var(--amber);}
+.panel-status.bad .status-text{color:var(--red);}
+.status-hint{font-size:.8125rem;color:var(--text2);line-height:1.5;}
+
+/* Counter */
+.counter-row{display:flex;align-items:baseline;gap:.4rem;margin-bottom:.875rem;}
+.counter-num{font-size:3.25rem;font-weight:800;color:var(--green);font-family:var(--fm);line-height:1;transition:transform .2s var(--ease);}
+.counter-num.pop{transform:scale(1.25);}
+.counter-slash{font-size:1.75rem;color:var(--border2);font-family:var(--fm);}
+.counter-target{font-size:1.75rem;color:var(--text3);font-family:var(--fm);}
+.counter-unit{font-size:1rem;color:var(--text2);font-weight:600;margin-left:.25rem;}
+.rep-track{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.875rem;}
+.rdot{width:13px;height:13px;border-radius:50%;background:var(--border);transition:all .3s var(--ease);}
+.rdot.ok{background:var(--green2);transform:scale(1.1);}
+.timer-row{display:flex;align-items:center;gap:.5rem;padding-top:.75rem;border-top:1px solid var(--border);}
+.timer-label{font-size:.6875rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.timer-val{font-size:.9375rem;font-weight:700;color:var(--text);font-family:var(--fm);}
+
+/* Hold panel */
+.panel-hold{background:var(--greenl);border-color:var(--greenb);}
+.hold-title-txt{font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:.75rem;}
+.hold-center{display:flex;align-items:baseline;gap:.3rem;margin-bottom:.875rem;}
+.hold-big-num{font-size:3.5rem;font-weight:800;color:var(--green);font-family:var(--fm);line-height:1;}
+.hold-big-unit{font-size:1.125rem;color:var(--green);font-weight:600;}
+.hold-bar-bg{height:10px;background:var(--greenb);border-radius:100px;overflow:hidden;margin-bottom:.625rem;}
+.hold-bar-fill{height:100%;background:var(--green);border-radius:100px;transition:width .25s linear;width:0%;}
+.hold-status-txt{font-size:.875rem;font-weight:600;color:var(--green);}
+
+/* Steps */
+.steps-list{display:flex;flex-direction:column;gap:.375rem;}
+.sitem{display:flex;gap:.5rem;align-items:flex-start;padding:.5rem .625rem;border-radius:var(--r2);border:1.5px solid transparent;transition:all .25s;}
+.sitem.active{background:var(--greenl);border-color:var(--greenb);}
+.sitem.done{opacity:.45;}
+.snum{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:800;font-family:var(--fm);background:var(--surface2);color:var(--text3);border:1.5px solid var(--border);}
+.sitem.active .snum{background:var(--green);color:#fff;border-color:var(--green);}
+.sitem.done .snum{background:var(--greenl);color:var(--green);border-color:var(--greenb);}
+.stxt{font-size:.8125rem;color:var(--text2);line-height:1.4;padding-top:.1rem;}
+.sitem.active .stxt{color:var(--green);font-weight:600;}
+
+/* Joints collapsible */
+.panel-detail{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:1.25rem;}
+.detail-summary{font-size:.8125rem;font-weight:600;color:var(--text3);cursor:pointer;list-style:none;
+  display:flex;align-items:center;justify-content:space-between;user-select:none;}
+.detail-summary::-webkit-details-marker{display:none;}
+.detail-summary::after{content:"+";font-size:.875rem;color:var(--text3);}
+details[open] .detail-summary::after{content:"−";}
+.joint-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.75rem;}
+.jitem{border:1.5px solid var(--border);border-radius:var(--r2);padding:.625rem .75rem;}
+.jname{font-size:.6rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+.jval{font-size:.9375rem;font-weight:700;color:var(--text);font-family:var(--fm);margin-top:.15rem;}
+.jpill{display:inline-block;padding:.1rem .35rem;border-radius:100px;font-size:.6rem;font-weight:700;margin-top:.2rem;font-family:var(--fm);}
+.jp-ok{background:var(--greenl);color:var(--green);}
+.jp-warn{background:var(--amberl);color:var(--amber);}
+.jp-bad{background:var(--redl);color:var(--red);}
+
+/* ══════════════════════════════
+   HISTORY PAGE
+══════════════════════════════ */
+.hist-pg{padding:2rem 1.5rem;max-width:900px;margin:0 auto;}
+.hist-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;}
+.hist-header h2{font-size:1.5rem;font-weight:800;letter-spacing:-.5px;}
+.hist-header p{font-size:.875rem;color:var(--text3);margin-top:.2rem;}
+.hist-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+.hbtn{padding:.5rem .875rem;border-radius:var(--r2);border:1.5px solid var(--border);
+  background:var(--surface);color:var(--text2);font-family:var(--ff);font-size:.8125rem;font-weight:600;cursor:pointer;transition:all var(--t);}
+.hbtn:hover{border-color:var(--green);color:var(--green);background:var(--greenl);}
+.hbtn.accent{background:var(--green);border-color:var(--green);color:#fff;}
+.hbtn.accent:hover{background:var(--green2);}
+.hbtn.del{color:var(--red);}
+.hbtn.del:hover{border-color:#fca5a5;background:var(--redl);}
+.sync-bar{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r2);
+  padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;font-size:.8125rem;}
+.sync-indicator{width:7px;height:7px;border-radius:50%;background:var(--green2);animation:blink 2s infinite;flex-shrink:0;}
+.sync-indicator.warn{background:#f59e0b;animation:none;}
+.sync-txt{flex:1;color:var(--text2);}
+.sync-link{color:var(--green);cursor:pointer;font-weight:600;flex-shrink:0;}
+.sync-link:hover{color:var(--green2);}
+.sess-empty{text-align:center;padding:4rem 2rem;color:var(--text3);}
+.sess-empty p{font-size:.875rem;margin-top:.5rem;line-height:1.6;}
+.sess-list{display:flex;flex-direction:column;gap:.5rem;}
+.sess{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:1rem 1.125rem;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:1rem;transition:all var(--t);}
+.sess:hover{border-color:var(--greenb);}
+.sess-name{font-size:.9375rem;font-weight:700;}
+.sess-meta{font-size:.75rem;color:var(--text3);margin-top:.2rem;}
+.sync-tag{font-size:.675rem;padding:.15rem .4rem;border-radius:100px;font-weight:700;margin-left:.4rem;font-family:var(--fm);}
+.synced{background:var(--greenl);color:var(--green);}
+.pending{background:var(--amberl);color:var(--amber);}
+.sess-score{font-size:1.125rem;font-weight:800;font-family:var(--fm);text-align:right;}
+.sess-reps{font-size:.75rem;color:var(--text3);text-align:right;margin-top:.1rem;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1080px){.ex-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:960px){.ex-layout{grid-template-columns:1fr;}}
+@media(max-width:640px){
+  .topbar-nav{display:none;}
+  .ex-grid{grid-template-columns:1fr 1fr;}
+  .progress-summary{grid-template-columns:1fr 1fr;}
+  .prog-grid{grid-template-columns:1fr;}
+  .ach-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<div id="loader"><div class="spin"></div><div id="loaderTxt">กำลังโหลด RehabAI</div></div>
+<div id="toast"></div>
+
+<!-- ══════════════════════════════
+     AUTH
+══════════════════════════════ -->
+<div id="authScreen">
+  <div class="auth-wrap">
+    <div class="auth-brand">
+      <div class="auth-logo">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l2.5 2.5L16 9"/></svg>
+      </div>
+      <h1>Rehab<span>AI</span></h1>
+      <p>ระบบกายภาพบำบัดอัจฉริยะสำหรับผู้สูงอายุ</p>
+    </div>
+    <div class="auth-box">
+      <div class="atabs">
+        <div class="atab on" onclick="authTab('login')">เข้าสู่ระบบ</div>
+        <div class="atab" onclick="authTab('reg')">สมัครสมาชิก</div>
+      </div>
+      <div class="err-msg" id="authErr"></div>
+      <div id="loginF">
+        <div class="fg"><label>อีเมล</label><input type="email" id="liEm" placeholder="your@email.com"></div>
+        <div class="fg"><label>รหัสผ่าน</label><input type="password" id="liPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="btn-primary" onclick="doLogin()">เข้าสู่ระบบ</button>
+        <div class="auth-footer"><a onclick="demoLogin()">ทดลองใช้งานโดยไม่ต้องสมัคร</a></div>
+      </div>
+      <div id="regF" style="display:none">
+        <div class="frow">
+          <div class="fg"><label>ชื่อ</label><input type="text" id="rFn" placeholder="สมชาย"></div>
+          <div class="fg"><label>นามสกุล</label><input type="text" id="rLn" placeholder="ใจดี"></div>
+        </div>
+        <div class="fg"><label>อีเมล</label><input type="email" id="rEm" placeholder="your@email.com"></div>
+        <div class="frow">
+          <div class="fg"><label>อายุ</label><input type="number" id="rAge" placeholder="65" min="1" max="120"></div>
+          <div class="fg"><label>เพศ</label><select id="rGen"><option value="">เลือก</option><option>ชาย</option><option>หญิง</option><option>อื่นๆ</option></select></div>
+        </div>
+        <div class="fg"><label>อาการ / เหตุผลการฝึก</label><input type="text" id="rCond" placeholder="เช่น ปวดคอบ่า ปวดเข่า"></div>
+        <div class="fg"><label>รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input type="password" id="rPw" placeholder="••••••••"></div>
+        <button class="btn-primary" onclick="doRegister()">สมัครและเริ่มใช้งาน</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     APP
+══════════════════════════════ -->
+<div id="appScreen">
+  <div class="topbar">
+    <div class="topbar-brand"><div class="brand-dot"></div>RehabAI</div>
+    <div class="topbar-nav">
+      <div class="tnav on" onclick="goPage('dash')">หน้าหลัก</div>
+      <div class="tnav" onclick="goPage('cam')">ฝึกกายภาพ</div>
+      <div class="tnav" onclick="goPage('prog')">ความก้าวหน้า</div>
+      <div class="tnav" onclick="goPage('hist')">ประวัติ</div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <div class="user-av" id="navAv">ส</div>
+        <span class="user-name" id="navNm">ผู้ใช้</span>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">ออก</button>
+    </div>
+  </div>
+
+  <!-- ─── DASHBOARD ─── -->
+  <div class="pg on" id="pg-dash">
+    <div class="dash">
+      <div class="dash-header">
+        <h2>สวัสดี, <span id="greetName">คุณ</span></h2>
+        <p id="greetSub">เลือกท่ากายภาพบำบัดเพื่อเริ่มฝึกวันนี้</p>
+      </div>
+
+      <div class="progress-summary">
+        <div class="pstat" id="ps1"><div class="pstat-num" id="stS">0</div><div class="pstat-lbl">ครั้งที่ฝึก</div></div>
+        <div class="pstat" id="ps2"><div class="pstat-num" id="stR">0</div><div class="pstat-lbl">จำนวนครั้งรวม</div></div>
+        <div class="pstat" id="ps3"><div class="pstat-num" id="stSc">—</div><div class="pstat-lbl">คะแนนเฉลี่ย</div></div>
+        <div class="pstat" id="ps4"><div class="pstat-num" id="stT">0</div><div class="pstat-lbl">นาทีทั้งหมด</div></div>
+      </div>
+
+      <!-- Weekly chart -->
+      <div class="progress-week-wrap">
+        <div class="pw-header">
+          <div class="pw-title">กิจกรรมรายสัปดาห์</div>
+          <div class="pw-subtitle" id="weekRange"></div>
+        </div>
+        <div class="week-bars" id="weekBars"></div>
+      </div>
+
+      <!-- Badges row -->
+      <div class="achievements-row" id="badgeRow"></div>
+
+      <div class="section-label">ท่ากายภาพบำบัด</div>
+      <div class="ex-grid" id="exList"></div>
+    </div>
+  </div>
+
+  <!-- ─── CAMERA PAGE ─── -->
+  <div class="pg" id="pg-cam">
+    <div class="ex-pg">
+      <div class="ex-pg-nav">
+        <button class="btn-back" onclick="goPage('dash')">← กลับ</button>
+        <div>
+          <div class="ex-pg-title" id="camExName">—</div>
+          <div class="ex-pg-sub" id="camExDesc"></div>
+        </div>
+      </div>
+      <div class="ex-layout">
+        <div>
+          <div class="vid-container">
+            <video id="vidEl" autoplay playsinline muted></video>
+            <canvas id="poseCanvas"></canvas>
+            <div class="vid-placeholder" id="noCam"><p>กดปุ่ม "เปิดกล้อง" เพื่อเริ่มต้น</p></div>
+            <div class="cam-status"><div class="cam-dot" id="camDot"></div><span class="cam-status-txt" id="camStat">ยังไม่ได้เปิด</span></div>
+            <div class="ai-badge" id="aiBadge">AI พร้อม</div>
+            <div class="feedback-bar" id="fbBar">
+              <div class="fb-label">การวิเคราะห์ AI</div>
+              <div class="fb-text" id="fbTxt">เปิดกล้องและทำท่ากายภาพ</div>
+            </div>
+          </div>
+          <div class="cam-controls">
+            <button class="ctrl-btn prim" id="openBtn" onclick="openCam()">เปิดกล้อง</button>
+            <button class="ctrl-btn" onclick="resetSess()">เริ่มใหม่</button>
+            <button class="ctrl-btn" onclick="saveSess()">บันทึก</button>
+            <button class="ctrl-btn danger" id="closeBtn" onclick="closeCam()" style="display:none">หยุด</button>
+          </div>
+        </div>
+        <div class="info-col">
+          <div class="panel panel-status" id="statusPanel">
+            <div class="status-label">สถานะ</div>
+            <div class="status-text" id="scoreStatus">รอเริ่ม</div>
+            <div class="status-hint" id="scoreHint">กดปุ่ม "เปิดกล้อง" แล้วทำท่ากายภาพ</div>
+          </div>
+          <div class="panel">
+            <div class="counter-row">
+              <div class="counter-main">
+                <div class="counter-num" id="repNum">0</div>
+                <div class="counter-slash">/</div>
+                <div class="counter-target" id="repTgt">10</div>
+              </div>
+              <div class="counter-unit">ครั้ง</div>
+            </div>
+            <div class="rep-track" id="repDots"></div>
+            <div class="timer-row">
+              <span class="timer-label">เวลา</span>
+              <span class="timer-val" id="timerVal">00:00</span>
+              <span class="timer-label" style="margin-left:.875rem">คะแนน</span>
+              <span class="timer-val" id="scoreNum" style="color:var(--green)">—</span>
+            </div>
+          </div>
+          <div class="panel panel-hold" id="holdPanel" style="display:none">
+            <div class="hold-title-txt">ค้างท่าไว้</div>
+            <div class="hold-center">
+              <div class="hold-big-num" id="holdNum">0</div>
+              <div class="hold-big-unit">วินาที</div>
+            </div>
+            <div class="hold-bar-bg"><div class="hold-bar-fill" id="holdBarFill"></div></div>
+            <div class="hold-status-txt" id="holdLbl">เริ่มค้างท่า</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">วิธีทำ — ทำตามขั้นตอน</div>
+            <div class="steps-list" id="stepsList"></div>
+          </div>
+          <details class="panel-detail">
+            <summary class="detail-summary">ข้อมูลมุมข้อต่อ (ขั้นสูง)</summary>
+            <div class="joint-grid" style="margin-top:.75rem">
+              <div class="jitem"><div class="jname">เข่าซ้าย</div><div class="jval" id="jKL">—°</div><span class="jpill jp-warn" id="jpKL">?</span></div>
+              <div class="jitem"><div class="jname">เข่าขวา</div><div class="jval" id="jKR">—°</div><span class="jpill jp-warn" id="jpKR">?</span></div>
+              <div class="jitem"><div class="jname">สะโพก</div><div class="jval" id="jHip">—°</div><span class="jpill jp-warn" id="jpHip">?</span></div>
+              <div class="jitem"><div class="jname">คอ</div><div class="jval" id="jNeck">—°</div><span class="jpill jp-warn" id="jpNeck">?</span></div>
+              <div class="jitem"><div class="jname">ข้อเท้า</div><div class="jval" id="jAnk">—%</div><span class="jpill jp-warn" id="jpAnk">?</span></div>
+              <div class="jitem"><div class="jname">ลำตัว</div><div class="jval" id="jTrk">—°</div><span class="jpill jp-warn" id="jpTrk">?</span></div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── PROGRESS PAGE ─── -->
+  <div class="pg" id="pg-prog">
+    <div class="prog-pg">
+      <div class="prog-header">
+        <h2>ความก้าวหน้า</h2>
+        <p id="progInfo"></p>
+      </div>
+
+      <div class="prog-grid">
+        <!-- Score timeline -->
+        <div class="prog-card">
+          <div class="prog-card-title">คะแนนย้อนหลัง 14 วัน</div>
+          <div class="chart-wrap"><svg class="chart-svg" id="scoreChart"></svg></div>
+        </div>
+        <!-- Streak calendar -->
+        <div class="prog-card">
+          <div class="prog-card-title">วันที่ฝึก (30 วันล่าสุด)</div>
+          <div class="sday-labels" id="streakLabels"></div>
+          <div class="streak-cal" id="streakCal"></div>
+        </div>
+      </div>
+
+      <!-- Per-exercise breakdown -->
+      <div class="prog-card" style="margin-bottom:1.25rem">
+        <div class="prog-card-title">คะแนนเฉลี่ยแต่ละท่า</div>
+        <div class="ex-breakdown" id="exBreakdown"></div>
+      </div>
+
+      <!-- Achievements -->
+      <div class="prog-card">
+        <div class="prog-card-title">ความสำเร็จ</div>
+        <div class="ach-grid" id="achGrid" style="margin-top:.75rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── HISTORY PAGE ─── -->
+  <div class="pg" id="pg-hist">
+    <div class="hist-pg">
+      <div class="hist-header">
+        <div><h2>ประวัติการฝึก</h2><p id="histInfo"></p></div>
+        <div class="hist-actions">
+          <button class="hbtn accent" onclick="syncAll()">Sync ไป Google Sheets</button>
+          <button class="hbtn" onclick="openSheets()">เปิด Google Sheets</button>
+          <button class="hbtn" onclick="exportCSV()">Export CSV</button>
+          <button class="hbtn del" onclick="clearAll()">ลบทั้งหมด</button>
+        </div>
+      </div>
+      <div class="sync-bar">
+        <div class="sync-indicator" id="syncDot"></div>
+        <div class="sync-txt" id="syncTxt">กำลังตรวจสอบการเชื่อมต่อ</div>
+        <span class="sync-link" onclick="openSheets()">เปิด Sheets</span>
+      </div>
+      <div id="histList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     INLINE SVG ILLUSTRATIONS
+══════════════════════════════ -->
+<svg style="display:none" id="svgDefs">
+</svg>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+const APPS_URL = 'https://script.google.com/macros/s/AKfycbwpq6ADxjrme9IkrQg94IJW826BF0pCz3Ijk4_cfGX2b-HcVodwCWvlE57yeyTHn3sZhQ/exec';
+const SHEET_ID = '1_v-8Gem3O5M-GvtLH5YediIGkbl1dGHvn-gGAmS9kxM';
+
+// ═══════════════════════════════════════
+// EXERCISE ILLUSTRATIONS  (inline SVG paths)
+// ═══════════════════════════════════════
+const ILLUS = {
+  neck_tilt: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- bg circle -->
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- body -->
+    <rect x="38" y="62" width="24" height="32" rx="8" fill="#40916c" opacity=".8"/>
+    <!-- neck -->
+    <rect x="44" y="50" width="12" height="16" rx="5" fill="#52b788"/>
+    <!-- head tilted -->
+    <ellipse cx="50" cy="38" rx="13" ry="14" fill="#74c69d" transform="rotate(-18 50 38)"/>
+    <!-- ear -->
+    <ellipse cx="39" cy="34" rx="4" ry="6" fill="#52b788" transform="rotate(-18 39 34)"/>
+    <!-- arrow -->
+    <path d="M30 30 Q22 24 26 18" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M22 16 l4 2 -1 4" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`,
+
+  sit_to_stand: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- Chair -->
+    <rect x="20" y="68" width="52" height="5" rx="2" fill="#40916c" opacity=".5"/>
+    <rect x="20" y="68" width="5" height="24" rx="2" fill="#40916c" opacity=".4"/>
+    <rect x="67" y="68" width="5" height="24" rx="2" fill="#40916c" opacity=".4"/>
+    <!-- Person standing -->
+    <circle cx="62" cy="30" r="9" fill="#52b788"/>
+    <rect x="56" y="40" width="12" height="22" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- legs -->
+    <path d="M57 62 L54 82" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M65 62 L68 82" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <!-- arrow up -->
+    <path d="M38 55 L38 30" stroke="#2d6a4f" stroke-width="2" stroke-dasharray="3 2" stroke-linecap="round"/>
+    <path d="M34 32 L38 26 L42 32" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`,
+
+  side_step: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- arrows -->
+    <path d="M15 80 L28 80" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round"/>
+    <path d="M13 77 L8 80 L13 83" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M72 80 L85 80" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round"/>
+    <path d="M87 77 L92 80 L87 83" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- person -->
+    <circle cx="50" cy="30" r="10" fill="#52b788"/>
+    <rect x="43" y="41" width="14" height="22" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- arms out -->
+    <path d="M43 48 L26 52" stroke="#52b788" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M57 48 L74 52" stroke="#52b788" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- legs spread -->
+    <path d="M46 63 L36 84" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M54 63 L64 84" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+  </svg>`,
+
+  trunk_rotation: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- rotation arc -->
+    <path d="M28 52 A26 26 0 0 1 72 52" stroke="#b7e4c7" stroke-width="2" stroke-dasharray="4 3" fill="none"/>
+    <path d="M70 50 L72 52 L70 58" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- person -->
+    <circle cx="50" cy="28" r="10" fill="#52b788"/>
+    <rect x="43" y="39" width="14" height="22" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- rotated arm -->
+    <path d="M43 46 L24 40" stroke="#52b788" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M57 46 L76 56" stroke="#52b788" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- legs -->
+    <path d="M46 61 L44 83" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M54 61 L56 83" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+  </svg>`,
+
+  quad_set: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- chair -->
+    <rect x="18" y="58" width="54" height="5" rx="2" fill="#40916c" opacity=".5"/>
+    <rect x="66" y="58" width="5" height="30" rx="2" fill="#40916c" opacity=".4"/>
+    <!-- person sitting -->
+    <circle cx="38" cy="30" r="10" fill="#52b788"/>
+    <rect x="30" y="41" width="15" height="20" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- seated leg -->
+    <path d="M30 58 L22 58" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <!-- raised straight leg with arrow -->
+    <path d="M45 58 L74 50" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M72 44 L76 50 L70 53" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`,
+
+  calf_raise: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- floor line -->
+    <line x1="22" y1="96" x2="78" y2="96" stroke="#b7e4c7" stroke-width="2" stroke-linecap="round"/>
+    <!-- chair back -->
+    <rect x="72" y="45" width="5" height="46" rx="2" fill="#40916c" opacity=".4"/>
+    <rect x="67" y="45" width="10" height="4" rx="2" fill="#40916c" opacity=".4"/>
+    <!-- person on tiptoe -->
+    <circle cx="46" cy="26" r="10" fill="#52b788"/>
+    <rect x="39" y="37" width="14" height="24" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- legs on tiptoe -->
+    <path d="M41 61 L41 88" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M51 61 L51 88" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <!-- tiptoe feet -->
+    <path d="M36 96 L44 88" stroke="#40916c" stroke-width="4" stroke-linecap="round"/>
+    <path d="M56 96 L48 88" stroke="#40916c" stroke-width="4" stroke-linecap="round"/>
+    <!-- up arrows -->
+    <path d="M26 60 L26 40" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round"/>
+    <path d="M22 42 L26 36 L30 42" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`,
+
+  hip_abduction: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- chair -->
+    <rect x="72" y="40" width="5" height="55" rx="2" fill="#40916c" opacity=".4"/>
+    <rect x="67" y="40" width="10" height="4" rx="2" fill="#40916c" opacity=".4"/>
+    <!-- person -->
+    <circle cx="46" cy="26" r="10" fill="#52b788"/>
+    <rect x="39" y="37" width="14" height="22" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- standing leg -->
+    <path d="M43 59 L43 90" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <!-- abducted leg with arrow -->
+    <path d="M51 59 L72 72" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <path d="M70 66 L74 73 L67 76" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M26 55 L26 45" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round"/>
+  </svg>`,
+
+  hamstring_curl: `<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="55" r="44" fill="#b7e4c7" opacity=".35"/>
+    <!-- chair for support -->
+    <rect x="68" y="38" width="5" height="55" rx="2" fill="#40916c" opacity=".4"/>
+    <rect x="63" y="38" width="10" height="4" rx="2" fill="#40916c" opacity=".4"/>
+    <!-- person -->
+    <circle cx="44" cy="25" r="10" fill="#52b788"/>
+    <rect x="37" y="36" width="14" height="22" rx="5" fill="#40916c" opacity=".85"/>
+    <!-- standing leg -->
+    <path d="M40 58 L40 90" stroke="#40916c" stroke-width="5" stroke-linecap="round"/>
+    <!-- curled leg behind -->
+    <path d="M48 58 L48 72 Q48 85 40 88" stroke="#40916c" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <!-- arrow -->
+    <path d="M55 72 Q62 72 62 60" stroke="#2d6a4f" stroke-width="2" stroke-dasharray="3 2" fill="none"/>
+    <path d="M58 57 L62 60 L65 57" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`
+};
+
+// ═══════════════════════════════════════
+// EXERCISES DATA
+// ═══════════════════════════════════════
+const EX = {
+  neck_tilt:{name:'ผ่อนคลายคอและบ่า',type:'hold',target:10,holdSec:5,
+    desc:'ลดปวดเมื่อยคอ–บ่า เพิ่มความยืดหยุ่น',
+    steps:['นั่งตัวตรง ไหล่ผ่อนคลาย','เอียงศีรษะซ้าย หูชิดไหล่','ค้างไว้ 5 วินาที','กลับมากลาง ทำข้างขวา','ค้างไว้ 5 วินาที','ทำสลับกัน 10 ครั้ง/ข้าง'],analyze:analyzeNeckTilt},
+  sit_to_stand:{name:'ท่าลุกจากเก้าอี้',type:'rep',target:10,
+    desc:'เสริมความแข็งแรงขาและสะโพก ฝึกทรงตัว',
+    steps:['นั่งเก้าอี้แข็งแรง ไม่เตี้ยเกิน','วางเท้าหลังเข่าเล็กน้อย','โน้มตัวไปข้างหน้า','ลุกขึ้นยืนไม่ใช้มือพยุง','ยืนตรง 1–2 วินาที','นั่งลงช้าๆ ทำซ้ำ'],analyze:analyzeSitToStand},
+  side_step:{name:'เดินสไลด์ด้านข้าง',type:'rep',target:10,
+    desc:'ฝึกสมดุล กล้ามเนื้อสะโพกด้านข้าง',
+    steps:['ยืนตรง มองตรงหน้า มือเท้าเอว','ก้าวขวาออกข้าง 1 ก้าว','ชักขาซ้ายตาม','เดินขวา 10 ก้าว กลับซ้าย','ลำตัวตั้งตรงตลอด','ทำซ้ำ 10–20 ครั้ง'],analyze:analyzeSideStep},
+  trunk_rotation:{name:'บริหารลำตัว',type:'rep',target:10,
+    desc:'เพิ่มความยืดหยุ่นลำตัวส่วนบน ลดปวดหลัง',
+    steps:['ยืนตรง กางขาเท่าไหล่','บิดลำตัวส่วนบนไปขวา','บิดให้มากที่สุด','สะโพกนิ่ง — ไม่บิดตาม','กลับตรง บิดไปซ้าย','ทำสลับ 10 ครั้ง'],analyze:analyzeTrunkRot},
+  quad_set:{name:'บริหารกล้ามเนื้อต้นขา',type:'hold',target:10,holdSec:10,
+    desc:'เสริมต้นขา เหมาะฟื้นฟูเข่า',
+    steps:['นั่งเก้าอี้ หลังพิงตรง','เหยียดขาขึ้นตรงสุด','กระดกข้อเท้าขึ้น','ค้างไว้ 10 วินาที','เอาลงช้าๆ','ทำทีละข้าง 10 ครั้ง'],analyze:analyzeQuadSet},
+  calf_raise:{name:'บริหารข้อเท้า (Calf Raise)',type:'hold',target:10,holdSec:10,
+    desc:'ฝึกน่องและข้อเท้า เสริมสมดุล',
+    steps:['ยืนจับพนักพิงเก้าอี้','เขย่งปลายเท้าขึ้นสูงสุด','เข่าตึง ไม่งอ','ค้างไว้ 10 วินาที','ลงช้าๆ ส้นเท้าแตะพื้น','ทำซ้ำ 10 ครั้ง'],analyze:analyzeCalfRaise},
+  hip_abduction:{name:'บริหารสะโพกด้านข้าง',type:'hold',target:10,holdSec:10,
+    desc:'เสริมสะโพกด้านข้าง ป้องกันบาดเจ็บ',
+    steps:['ยืนจับพนักพิงเก้าอี้','กางขาข้างหนึ่งออกข้าง','ขาตึง ลำตัวตั้งตรง','ค้างไว้ 10 วินาที','เอาลงช้าๆ','สลับข้าง 10 ครั้ง/ข้าง'],analyze:analyzeHipAbd},
+  hamstring_curl:{name:'บริหารต้นขาหลัง (Hamstring)',type:'hold',target:10,holdSec:10,
+    desc:'ฟื้นฟูต้นขาหลัง ลดการบาดเจ็บ',
+    steps:['ยืนจับพนักพิงเก้าอี้','งอเข่าข้างหนึ่งขึ้นด้านหลัง','ส้นเท้าชิดก้น','ค้างไว้ 10 วินาที','เอาลงช้าๆ','สลับข้าง 10 ครั้ง/ข้าง'],analyze:analyzeHamstring}
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let CU = null;
+let USERS = JSON.parse(localStorage.getItem('rh_u') || '{}');
+let curEx = 'neck_tilt';
+let detector = null, vidStream = null, camOn = false, rafId = null, modelReady = false;
+let timerInt = null;
+let SS = {reps:0,score:0,gf:0,tf:0,startTime:null,dur:0,phase:'neutral',holdOn:false,holdSec:0,holdInt:null,lastHipX:null};
+
+// ═══════════════════════════════════════
+// GOOGLE SHEETS
+// ═══════════════════════════════════════
+async function sheetsPost(payload) {
+  try {
+    const res = await fetch(APPS_URL, {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload)});
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch(e) { return {success:true}; }
+  } catch(e) {
+    try {
+      await fetch(APPS_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      return {success:true, noCors:true};
+    } catch(e2) { return {success:false, error:e2.message}; }
+  }
+}
+async function sheetRegisterUser(u) {
+  return sheetsPost({action:'register', sheet:'User', email:u.em, firstName:u.fn, lastName:u.ln, age:u.age||'', gender:u.gen||'', condition:u.cond||'', registeredAt:new Date().toISOString()});
+}
+async function sheetSaveSession(s) {
+  if (!CU) return {success:false};
+  return sheetsPost({action:'saveSession', sheet:'Data', email:CU.em, userName:CU.fn+' '+CU.ln, age:CU.age||'', gender:CU.gen||'', condition:CU.cond||'', exerciseName:s.exName, reps:s.reps, score:s.score, duration:s.dur, date:s.date, time:s.time});
+}
+function updateSheetsUI(ok) {
+  const dot = document.getElementById('syncDot'), txt = document.getElementById('syncTxt');
+  if (ok) { dot.className='sync-indicator'; txt.textContent='เชื่อมต่อ Google Sheets สำเร็จ'; }
+  else { dot.className='sync-indicator warn'; txt.textContent='ยังไม่ได้ Sync — กดปุ่ม "Sync ไป Google Sheets"'; }
+}
+
+// ═══════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════
+function authTab(t) {
+  document.querySelectorAll('.atab').forEach((e,i) => e.classList.toggle('on', (i===0&&t==='login')||(i===1&&t==='reg')));
+  document.getElementById('loginF').style.display = t==='login'?'block':'none';
+  document.getElementById('regF').style.display = t==='reg'?'block':'none';
+  document.getElementById('authErr').classList.remove('on');
+}
+function showAuthErr(m) { const e=document.getElementById('authErr'); e.textContent=m; e.classList.add('on'); }
+
+function doLogin() {
+  const em=gv('liEm'), pw=gv('liPw');
+  if (!em||!pw) return showAuthErr('กรุณากรอกอีเมลและรหัสผ่าน');
+  const u = USERS[em];
+  if (!u) return showAuthErr('ไม่พบบัญชีนี้ กรุณาสมัครสมาชิกก่อน');
+  if (u.pw !== btoa(unescape(encodeURIComponent(pw)))) return showAuthErr('รหัสผ่านไม่ถูกต้อง');
+  loginUser(u);
+}
+async function doRegister() {
+  const fn=gv('rFn'),ln=gv('rLn'),em=gv('rEm'),age=gv('rAge'),gen=gv('rGen'),cond=gv('rCond'),pw=gv('rPw');
+  if (!fn||!ln||!em||!pw) return showAuthErr('กรุณากรอกชื่อ นามสกุล อีเมล และรหัสผ่านให้ครบ');
+  if (pw.length < 6) return showAuthErr('รหัสผ่านต้องมีอย่างน้อย 6 ตัว');
+  if (USERS[em]) return showAuthErr('อีเมลนี้ถูกใช้แล้ว กรุณาเข้าสู่ระบบ');
+  const u = {em,fn,ln,age,gen,cond,pw:btoa(unescape(encodeURIComponent(pw))),sessions:[],createdAt:new Date().toISOString()};
+  USERS[em]=u; saveUsers();
+  showLoader('กำลังบันทึกข้อมูลสมาชิก...');
+  const r = await sheetRegisterUser(u);
+  hideLoader();
+  toast(r.success ? 'สมัครสมาชิกสำเร็จ — บันทึกลง Sheets แล้ว' : 'สมัครแล้ว (ออฟไลน์)', r.success?'ok':'warn');
+  loginUser(u);
+}
+function demoLogin() {
+  const u = {em:'demo@rehab.ai',fn:'ทดสอบ',ln:'Demo',age:65,gen:'ไม่ระบุ',cond:'ทดสอบระบบ',pw:'',sessions:[]};
+  USERS['demo@rehab.ai'] = USERS['demo@rehab.ai'] || u;
+  loginUser(USERS['demo@rehab.ai']);
+}
+function loginUser(u) {
+  CU = u;
+  localStorage.setItem('rh_cu', u.em);
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('navAv').textContent = u.fn[0];
+  document.getElementById('navNm').textContent = u.fn+' '+u.ln;
+  document.getElementById('greetName').textContent = u.fn+' '+u.ln;
+  document.getElementById('greetSub').textContent = u.cond ? 'เป้าหมาย: '+u.cond : 'พร้อมเริ่มกายภาพบำบัดวันนี้';
+  document.getElementById('histInfo').textContent = u.fn+' '+u.ln+(u.cond?' · '+u.cond:'');
+  document.getElementById('progInfo').textContent = u.fn+' '+u.ln+(u.cond?' · '+u.cond:'');
+  buildExList(); updateStats(); renderHist(); buildWeekChart(); buildBadges();
+  goPage('dash'); updateSheetsUI(false);
+}
+function doLogout() {
+  CU=null; localStorage.removeItem('rh_cu'); closeCam();
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('appScreen').style.display='none';
+}
+function saveUsers() { localStorage.setItem('rh_u', JSON.stringify(USERS)); }
+
+// ═══════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════
+function goPage(p) {
+  document.querySelectorAll('.pg').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.tnav').forEach((e,i) => e.classList.toggle('on', ['dash','cam','prog','hist'][i]===p));
+  document.getElementById('pg-'+p).classList.add('on');
+  if (p==='hist') { renderHist(); updateStats(); }
+  if (p==='dash') { updateStats(); buildWeekChart(); buildBadges(); }
+  if (p==='prog') { buildProgressPage(); }
+}
+
+// ═══════════════════════════════════════
+// BUILD EXERCISE LIST
+// ═══════════════════════════════════════
+function buildExList() {
+  const ses = CU?.sessions || [];
+  const exScores = {};
+  ses.forEach(s => {
+    if (!exScores[s.ex]) exScores[s.ex] = [];
+    exScores[s.ex].push(s.score);
+  });
+
+  document.getElementById('exList').innerHTML = Object.entries(EX).map(([k,e]) => {
+    const scores = exScores[k] || [];
+    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+    const count = ses.filter(s=>s.ex===k).length;
+    const pct = Math.min(avg, 100);
+    const done = count >= 3;
+    return `<div class="ex-card" onclick="startEx('${k}')">
+      <div class="ex-illus" style="background:${done?'var(--greenl)':'#e8f5ee'}">
+        ${ILLUS[k]||''}
+        <div class="ex-done-ring ${done?'show':''}">
+          <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+        </div>
+      </div>
+      <div class="ex-body">
+        <span class="ex-type-tag ${e.type}">${e.type==='hold'?'Hold '+e.holdSec+'วิ':'นับครั้ง'} · ${e.target} ครั้ง</span>
+        <div class="ex-name">${e.name}</div>
+        <div class="ex-desc">${e.desc}</div>
+        ${avg>0?`<div class="ex-progress-bar"><div class="ex-progress-fill" style="width:${pct}%"></div></div>`:''}
+      </div>
+      <div class="ex-footer">
+        <div class="ex-stats-mini">${count>0?`ฝึกแล้ว ${count} ครั้ง${avg>0?' · คะแนน '+avg+'%':''}` : `${e.steps.length} ขั้นตอน`}</div>
+        <button class="btn-start">เริ่มฝึก →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function startEx(k) { selectEx(k); goPage('cam'); }
+
+function selectEx(k) {
+  curEx = k; const e = EX[k];
+  document.getElementById('camExName').textContent = e.name;
+  document.getElementById('camExDesc').textContent = e.desc;
+  document.getElementById('repTgt').textContent = e.target;
+  document.getElementById('holdPanel').style.display = e.type==='hold' ? 'block' : 'none';
+  buildSteps(k,-1); resetSess();
+}
+
+function buildSteps(k, activeIdx) {
+  const e = EX[k];
+  document.getElementById('stepsList').innerHTML = e.steps.map((s,i) => `
+    <div class="sitem ${i<activeIdx?'done':i===activeIdx?'active':''}">
+      <div class="snum">${i<activeIdx?'✓':i+1}</div>
+      <div class="stxt">${s}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════
+// WEEKLY CHART
+// ═══════════════════════════════════════
+function buildWeekChart() {
+  if (!CU) return;
+  const days = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const today = new Date();
+  const bars = document.getElementById('weekBars');
+  const range = document.getElementById('weekRange');
+
+  // Build 7 days
+  const dayData = [];
+  for (let i=6; i>=0; i--) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const dStr = d.toLocaleDateString('th-TH');
+    const sessions = (CU.sessions||[]).filter(s=>s.date===dStr);
+    const avgScore = sessions.length ? Math.round(sessions.reduce((a,b)=>a+b.score,0)/sessions.length) : 0;
+    dayData.push({day:days[d.getDay()], isToday:i===0, count:sessions.length, score:avgScore});
+  }
+
+  const maxScore = Math.max(...dayData.map(d=>d.score), 1);
+  bars.innerHTML = dayData.map(d => {
+    const h = d.score > 0 ? Math.max(Math.round((d.score/100)*100), 8) : 4;
+    return `<div class="wbar-col">
+      <div class="wbar ${d.score>0?'has-data':''} ${d.isToday?'today':''}" style="height:${h}%"></div>
+      <div class="wbar-day ${d.isToday?'today':''}">${d.day}</div>
+    </div>`;
+  }).join('');
+
+  const s7 = new Date(today); s7.setDate(s7.getDate()-6);
+  range.textContent = s7.toLocaleDateString('th-TH',{day:'numeric',month:'short'})+' – '+today.toLocaleDateString('th-TH',{day:'numeric',month:'short'});
+}
+
+// ═══════════════════════════════════════
+// BADGES
+// ═══════════════════════════════════════
+const BADGES_DEF = [
+  {id:'first', label:'เริ่มต้น', check: ses => ses.length >= 1},
+  {id:'week',  label:'สัปดาห์แรก', check: ses => ses.length >= 7},
+  {id:'score80', label:'คะแนน 80+', check: ses => ses.some(s=>s.score>=80)},
+  {id:'streak3', label:'3 วันติด', check: ses => checkStreak(ses, 3)},
+];
+
+function checkStreak(ses, n) {
+  const dates = [...new Set(ses.map(s=>s.date))].sort();
+  if (dates.length < n) return false;
+  for (let i = dates.length-1; i >= n-1; i--) {
+    let streak = 1;
+    for (let j = i-1; j >= 0; j--) {
+      const diff = (new Date(dates[i-(i-j-1)]) - new Date(dates[i-(i-j)])) / 86400000;
+      if (diff === 1) streak++; else break;
+    }
+    if (streak >= n) return true;
+  }
+  return false;
+}
+
+function buildBadges() {
+  if (!CU) return;
+  const ses = CU.sessions || [];
+  document.getElementById('badgeRow').innerHTML = BADGES_DEF.map(b => {
+    const earned = b.check(ses);
+    return `<div class="badge ${earned?'earned':''}"><div class="badge-dot"></div>${b.label}</div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// PROGRESS PAGE
+// ═══════════════════════════════════════
+function buildProgressPage() {
+  if (!CU) return;
+  const ses = CU.sessions || [];
+  buildScoreChart(ses);
+  buildStreakCal(ses);
+  buildExBreakdown(ses);
+  buildAchievements(ses);
+}
+
+function buildScoreChart(ses) {
+  const svg = document.getElementById('scoreChart');
+  if (!ses.length) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#9c9488" font-size="12" font-family="Sarabun">ยังไม่มีข้อมูล</text>'; return; }
+
+  const last14 = [];
+  const today = new Date();
+  for (let i=13; i>=0; i--) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const dStr = d.toLocaleDateString('th-TH');
+    const daySes = ses.filter(s=>s.date===dStr);
+    const avg = daySes.length ? Math.round(daySes.reduce((a,b)=>a+b.score,0)/daySes.length) : null;
+    last14.push({i:13-i, score:avg});
+  }
+
+  const W=300, H=100, pad=10;
+  const pts = last14.filter(d=>d.score!==null);
+  if (!pts.length) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#9c9488" font-size="12" font-family="Sarabun">ยังไม่มีข้อมูล</text>'; return; }
+
+  const xScale = i => pad + (i/(13)) * (W-pad*2);
+  const yScale = v => H - pad - (v/100) * (H-pad*2);
+
+  // area fill
+  let pathD = `M ${xScale(pts[0].i)} ${yScale(pts[0].score)}`;
+  pts.forEach(p => pathD += ` L ${xScale(p.i)} ${yScale(p.score)}`);
+  const areaD = pathD + ` L ${xScale(pts[pts.length-1].i)} ${H-pad} L ${xScale(pts[0].i)} ${H-pad} Z`;
+
+  // grid lines
+  let gridLines = '';
+  [25,50,75].forEach(v => {
+    const y = yScale(v);
+    gridLines += `<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="#e4dfd7" stroke-width="1"/>`;
+    gridLines += `<text x="${pad-2}" y="${y+4}" text-anchor="end" font-size="9" fill="#9c9488" font-family="IBM Plex Mono">${v}</text>`;
+  });
+
+  // dots
+  let dots = '';
+  pts.forEach(p => {
+    dots += `<circle cx="${xScale(p.i)}" cy="${yScale(p.score)}" r="3.5" fill="white" stroke="#2d6a4f" stroke-width="2"/>`;
+  });
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `
+    <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#40916c" stop-opacity=".25"/>
+      <stop offset="100%" stop-color="#40916c" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${gridLines}
+    <path d="${areaD}" fill="url(#areaGrad)"/>
+    <path d="${pathD}" fill="none" stroke="#2d6a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}`;
+}
+
+function buildStreakCal(ses) {
+  const today = new Date();
+  const doneSet = new Set(ses.map(s=>s.date));
+  const labels = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  document.getElementById('streakLabels').innerHTML = labels.map(l=>`<div class="sday-lbl">${l}</div>`).join('');
+
+  let days = '';
+  for (let i=29; i>=0; i--) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const dStr = d.toLocaleDateString('th-TH');
+    const daySes = ses.filter(s=>s.date===dStr);
+    const good = daySes.some(s=>s.score>=80);
+    days += `<div class="sday ${doneSet.has(dStr)?(good?'done good':'done'):''}" title="${dStr}"></div>`;
+  }
+  document.getElementById('streakCal').innerHTML = days;
+}
+
+function buildExBreakdown(ses) {
+  if (!ses.length) { document.getElementById('exBreakdown').innerHTML = '<p style="font-size:.8125rem;color:var(--text3)">ยังไม่มีข้อมูล</p>'; return; }
+  const breakdown = {};
+  ses.forEach(s => {
+    if (!breakdown[s.ex]) breakdown[s.ex] = {name:s.exName, scores:[]};
+    breakdown[s.ex].scores.push(s.score);
+  });
+  document.getElementById('exBreakdown').innerHTML = Object.entries(breakdown).map(([k,v]) => {
+    const avg = Math.round(v.scores.reduce((a,b)=>a+b,0)/v.scores.length);
+    return `<div class="exb-item">
+      <div class="exb-name">${v.name}</div>
+      <div class="exb-bar-bg"><div class="exb-bar-fill" style="width:${avg}%"></div></div>
+      <div class="exb-val">${avg}%</div>
+    </div>`;
+  }).join('');
+}
+
+const ACHIEVEMENTS = [
+  {icon:'🌱', name:'ก้าวแรก', desc:'ฝึกครั้งแรก', check:ses=>ses.length>=1},
+  {icon:'🔥', name:'3 วันติด', desc:'ฝึก 3 วันต่อเนื่อง', check:ses=>checkStreak(ses,3)},
+  {icon:'⭐', name:'คะแนน 80+', desc:'ได้คะแนนเกิน 80%', check:ses=>ses.some(s=>s.score>=80)},
+  {icon:'💪', name:'10 Sessions', desc:'ฝึกครบ 10 ครั้ง', check:ses=>ses.length>=10},
+  {icon:'🏆', name:'100 ครั้ง', desc:'ทำท่ารวม 100 ครั้ง', check:ses=>ses.reduce((a,b)=>a+b.reps,0)>=100},
+  {icon:'🌟', name:'ทำครบทุกท่า', desc:'ฝึกครบ 8 ท่า', check:ses=>[...new Set(ses.map(s=>s.ex))].length>=8},
+  {icon:'🏅', name:'30 นาที', desc:'ออกกำลังกายรวม 30 นาที', check:ses=>ses.reduce((a,b)=>a+(b.dur||0),0)>=1800},
+  {icon:'🎯', name:'คะแนน 90+', desc:'ได้คะแนนเกิน 90%', check:ses=>ses.some(s=>s.score>=90)},
+];
+
+function buildAchievements(ses) {
+  document.getElementById('achGrid').innerHTML = ACHIEVEMENTS.map(a => {
+    const earned = a.check(ses);
+    return `<div class="ach-item ${earned?'earned':''}">
+      <div class="ach-icon">${a.icon}</div>
+      <div class="ach-name">${a.name}</div>
+      <div class="ach-desc">${a.desc}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════
+async function openCam() {
+  document.getElementById('openBtn').disabled=true;
+  document.getElementById('openBtn').textContent='กำลังเปิด...';
+  try {
+    vidStream = await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'}});
+    const v = document.getElementById('vidEl');
+    v.srcObject=vidStream; await v.play();
+    document.getElementById('noCam').style.display='none';
+    document.getElementById('camDot').classList.add('on');
+    document.getElementById('camStat').textContent='กำลังทำงาน';
+    document.getElementById('openBtn').style.display='none';
+    document.getElementById('closeBtn').style.display='flex';
+    camOn=true; SS.startTime=Date.now(); startTimer();
+    await loadModel(); startLoop();
+  } catch(ex) {
+    toast('เปิดกล้องไม่ได้: '+ex.message, 'err');
+    document.getElementById('openBtn').disabled=false;
+    document.getElementById('openBtn').textContent='เปิดกล้อง';
+  }
+}
+
+async function loadModel() {
+  if (detector) return;
+  showLoader('กำลังโหลด AI Model...');
+  try {
+    detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,
+      {modelType:poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing:true});
+    modelReady=true;
+    document.getElementById('aiBadge').style.display='block';
+    toast('AI พร้อมวิเคราะห์ท่าทาง', 'ok');
+  } catch(e) { toast('โหลด Model ไม่ได้: '+e.message, 'err'); }
+  finally { hideLoader(); }
+}
+
+function startLoop() {
+  const vid=document.getElementById('vidEl'), canvas=document.getElementById('poseCanvas'), ctx=canvas.getContext('2d');
+  async function loop() {
+    if (!camOn) return;
+    if (vid.readyState>=2) {
+      canvas.width=vid.videoWidth; canvas.height=vid.videoHeight;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if (detector&&modelReady) {
+        try {
+          const poses = await detector.estimatePoses(vid);
+          if (poses&&poses.length>0) {
+            drawPose(ctx, poses[0].keypoints);
+            const A = calcAngles(poses[0].keypoints, canvas.width, canvas.height);
+            updateJointsUI(A);
+            const ex=EX[curEx];
+            if (ex&&ex.analyze) { const r=ex.analyze(A,SS); if(r) applyResult(r); }
+            SS.tf++;
+          } else { setFb('ไม่พบร่างกาย — ยืนให้กล้องเห็นชัดขึ้น','warn',3); }
+        } catch(e) {}
+      }
+    }
+    rafId=requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function closeCam() {
+  camOn=false; if(rafId) cancelAnimationFrame(rafId);
+  if(vidStream) { vidStream.getTracks().forEach(t=>t.stop()); vidStream=null; }
+  const v=document.getElementById('vidEl'); v.srcObject=null;
+  document.getElementById('noCam').style.display='flex';
+  document.getElementById('camDot').classList.remove('on');
+  document.getElementById('camStat').textContent='ยังไม่ได้เปิด';
+  document.getElementById('openBtn').style.display='flex';
+  document.getElementById('openBtn').disabled=false;
+  document.getElementById('openBtn').textContent='เปิดกล้อง';
+  document.getElementById('closeBtn').style.display='none';
+  clearInterval(timerInt); clearHold();
+}
+
+// ═══════════════════════════════════════
+// POSE DRAWING
+// ═══════════════════════════════════════
+const CONN=[[0,1],[0,2],[1,3],[2,4],[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
+const KPN=['nose','left_eye','right_eye','left_ear','right_ear','left_shoulder','right_shoulder','left_elbow','right_elbow','left_wrist','right_wrist','left_hip','right_hip','left_knee','right_knee','left_ankle','right_ankle'];
+const ki=n=>KPN.indexOf(n);
+
+function drawPose(ctx,kp) {
+  ctx.lineWidth=2.5;
+  CONN.forEach(([a,b])=>{
+    const pa=kp[a],pb=kp[b];
+    if(!pa||!pb||pa.score<0.3||pb.score<0.3) return;
+    ctx.strokeStyle='rgba(64,145,108,.75)';
+    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+  });
+  kp.forEach(p=>{
+    if(!p||p.score<0.3) return;
+    ctx.fillStyle=p.score>0.6?'#4ade80':'#fbbf24';
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.score>0.6?5:3.5,0,Math.PI*2); ctx.fill();
+  });
+}
+
+// ═══════════════════════════════════════
+// ANGLES
+// ═══════════════════════════════════════
+function ang3(a,b,c) {
+  if(!a||!b||!c) return null;
+  const ab=[a.x-b.x,a.y-b.y],cb=[c.x-b.x,c.y-b.y];
+  const dot=ab[0]*cb[0]+ab[1]*cb[1];
+  const mag=Math.sqrt(ab[0]**2+ab[1]**2)*Math.sqrt(cb[0]**2+cb[1]**2);
+  if(!mag) return null;
+  return Math.round(Math.acos(Math.min(1,Math.max(-1,dot/mag)))*180/Math.PI);
+}
+function calcAngles(kp,w,h) {
+  const g=n=>{const p=kp[ki(n)];return p&&p.score>0.25?p:null;};
+  const ns=g('nose'),ls=g('left_shoulder'),rs=g('right_shoulder');
+  const lh=g('left_hip'),rh=g('right_hip'),lk=g('left_knee'),rk=g('right_knee'),la=g('left_ankle'),ra=g('right_ankle');
+  let trk=null;
+  if(ls&&rs&&lh&&rh){const sA=Math.atan2(rs.y-ls.y,rs.x-ls.x)*180/Math.PI,hA=Math.atan2(rh.y-lh.y,rh.x-lh.x)*180/Math.PI;trk=Math.abs(sA-hA);if(trk>180)trk=360-trk;trk=Math.round(trk);}
+  let neckTilt=null;
+  if(ns&&ls&&rs){const mx=(ls.x+rs.x)/2,my=(ls.y+rs.y)/2;neckTilt=Math.round(Math.atan2(Math.abs(ns.x-mx),Math.abs(ns.y-my))*180/Math.PI);}
+  return{kneeL:ang3(lh,lk,la),kneeR:ang3(rh,rk,ra),hipL:ang3(ls,lh,lk),hipR:ang3(rs,rh,rk),trkRot:trk,neckTilt,
+    hipAbdL:lh&&la?Math.abs(la.x-lh.x)/(w||640)*200:null,hipAbdR:rh&&ra?Math.abs(ra.x-rh.x)/(w||640)*200:null,
+    ankleLiftL:lh&&la?Math.round((1-(la.y/(h||480)))*100):null,ankleLiftR:rh&&ra?Math.round((1-(ra.y/(h||480)))*100):null,
+    raw:{ns,ls,rs,lh,rh,lk,rk,la,ra}};
+}
+
+// ═══════════════════════════════════════
+// ANALYZERS
+// ═══════════════════════════════════════
+function analyzeNeckTilt(A,S){const nt=A.neckTilt;if(nt===null)return{fb:'ให้กล้องเห็นศีรษะและไหล่ทั้งสองข้าง',type:'warn',score:0,step:0};if(nt>18){if(!S.holdOn){S.holdOn=true;S.holdSec=0;startHold(S,5);}return{fb:'เอียงหัวได้ดี! ค้างไว้ '+S.holdSec+'/5 วินาที',type:'good',score:88,step:2};}if(S.holdOn){S.holdOn=false;clearHold();}return{fb:'เอียงศีรษะไปด้านข้าง หูชิดไหล่',type:'warn',score:50,step:1};}
+function analyzeSitToStand(A,S){const knee=avg2(A.kneeL,A.kneeR);if(knee===null)return{fb:'ให้กล้องเห็นขาและลำตัวทั้งหมด',type:'warn',score:0,step:0};const sitting=knee<115,standing=knee>155;if((S.phase==='neutral'||S.phase==='up')&&sitting){S.phase='down';return{fb:'นั่งดีแล้ว — โน้มตัวและลุกขึ้น',type:'good',score:85,step:2};}if(S.phase==='down'){if(standing){S.phase='up';addRep(S,90);return{fb:'ลุกขึ้นสำเร็จ! ครั้งที่ '+S.reps,type:'good',score:90,step:5};}if(knee>115&&knee<155)return{fb:'ลุกขึ้นให้ตั้งตรงสุด',type:'warn',score:65,step:3};}return{fb:standing?'นั่งลงช้าๆ':'ลุกขึ้นให้ตั้งตรง',type:'warn',score:65,step:1};}
+function analyzeSideStep(A,S){const trk=A.trkRot;if(trk!==null&&trk>20)return{fb:'ลำตัวเอียง — ยืนตัวตรง มองตรง',type:'bad',score:40,step:0};const raw=A.raw,cx=avg2(raw.lh?.x,raw.rh?.x);if(!S.lastHipX)S.lastHipX=cx;const diff=cx!==null&&S.lastHipX!==null?Math.abs(cx-S.lastHipX):0;if(diff>18&&S.phase!=='moving')S.phase='moving';else if(diff<5&&S.phase==='moving'){S.phase='neutral';addRep(S,85);}S.lastHipX=cx;return{fb:'เดินสไลด์ต่อ ลำตัวตั้งตรง',type:'good',score:85,step:1};}
+function analyzeTrunkRot(A,S){const trk=A.trkRot;if(trk===null)return{fb:'ให้กล้องเห็นลำตัวและไหล่',type:'warn',score:0,step:0};if(S.phase==='neutral'&&trk>18){S.phase='rotating';return{fb:'บิดได้ดี! ค้างสักครู่',type:'good',score:88,step:2};}if(S.phase==='rotating'&&trk<8){S.phase='neutral';addRep(S,88);return{fb:'ครั้งที่ '+S.reps+'! กลับตรงแล้วบิดอีกข้าง',type:'good',score:90,step:5};}if(trk<5)return{fb:'บิดลำตัวส่วนบนให้มากที่สุด ไม่บิดสะโพก',type:'warn',score:50,step:2};return{fb:'กำลังบิดอยู่ ทำดีมาก',type:'good',score:78,step:2};}
+function analyzeQuadSet(A,S){const knee=avg2(A.kneeL,A.kneeR);if(knee===null)return{fb:'ให้กล้องเห็นขาทั้งหมด',type:'warn',score:0,step:0};if(knee>148){if(!S.holdOn){S.holdOn=true;S.holdSec=0;startHold(S,10);}return{fb:'เหยียดขาดีแล้ว! ค้างไว้ '+S.holdSec+'/10 วิ',type:'good',score:90,step:3};}if(S.holdOn){S.holdOn=false;clearHold();}return{fb:'เหยียดขาขึ้นให้ตรงสุด พร้อมกระดกข้อเท้า',type:'warn',score:55,step:1};}
+function analyzeCalfRaise(A,S){const lift=avg2(A.ankleLiftL,A.ankleLiftR);if(lift===null)return{fb:'ให้กล้องเห็นเท้าและขา',type:'warn',score:0,step:0};if(lift>62){if(!S.holdOn){S.holdOn=true;S.holdSec=0;startHold(S,10);}return{fb:'เขย่งได้ดีมาก! ค้างไว้ '+S.holdSec+'/10 วิ',type:'good',score:92,step:2};}if(S.holdOn){S.holdOn=false;clearHold();}return{fb:'เขย่งปลายเท้าขึ้นสูงๆ ยืดน่องให้สุด',type:'warn',score:50,step:1};}
+function analyzeHipAbd(A,S){const abd=Math.max(A.hipAbdL||0,A.hipAbdR||0);if(!A.hipAbdL&&!A.hipAbdR)return{fb:'ให้กล้องเห็นสะโพกและขา',type:'warn',score:0,step:0};if(abd>28){if(!S.holdOn){S.holdOn=true;S.holdSec=0;startHold(S,10);}return{fb:'กางขาได้ดี! ค้างไว้ '+S.holdSec+'/10 วิ',type:'good',score:88,step:2};}if(S.holdOn){S.holdOn=false;clearHold();}return{fb:'กางขาออกด้านข้างให้มากขึ้น',type:'warn',score:52,step:1};}
+function analyzeHamstring(A,S){const knee=Math.min(A.kneeL!==null?A.kneeL:180,A.kneeR!==null?A.kneeR:180);if(!A.kneeL&&!A.kneeR)return{fb:'ให้กล้องเห็นขาทั้งหมด',type:'warn',score:0,step:0};if(knee<100){if(!S.holdOn){S.holdOn=true;S.holdSec=0;startHold(S,10);}return{fb:'พับขาได้ดี! ค้างไว้ '+S.holdSec+'/10 วิ',type:'good',score:90,step:3};}if(S.holdOn){S.holdOn=false;clearHold();}return{fb:'พับขาขึ้นด้านหลัง งอเข่าให้มากขึ้น',type:'warn',score:52,step:1};}
+
+// ═══════════════════════════════════════
+// HOLD TIMER
+// ═══════════════════════════════════════
+function startHold(S, maxSec) {
+  clearHold();
+  S.holdInt = setInterval(()=>{
+    if(!S.holdOn){clearHold();return;}
+    S.holdSec++;
+    document.getElementById('holdBarFill').style.width=(S.holdSec/maxSec*100)+'%';
+    document.getElementById('holdNum').textContent=S.holdSec;
+    document.getElementById('holdLbl').textContent=S.holdSec>=maxSec?'ครบแล้ว!':'ค้างไว้';
+    if(S.holdSec>=maxSec){S.holdOn=false;addRep(S,92);clearHold();
+      setTimeout(()=>{document.getElementById('holdBarFill').style.width='0%';document.getElementById('holdNum').textContent='0';document.getElementById('holdLbl').textContent='เริ่มค้างท่า';},1500);}
+  },1000);
+}
+function clearHold(){if(SS.holdInt){clearInterval(SS.holdInt);SS.holdInt=null;}}
+
+// ═══════════════════════════════════════
+// APPLY RESULT
+// ═══════════════════════════════════════
+function addRep(S, score) {
+  S.reps++; S.score=score; S.gf+=10;
+  const el=document.getElementById('repNum');
+  el.textContent=S.reps;
+  el.classList.add('pop'); setTimeout(()=>el.classList.remove('pop'),250);
+  document.getElementById('scoreNum').textContent=score+'%';
+  buildDots(S.reps);
+  if(S.reps>=EX[curEx].target) toast('ครบ '+EX[curEx].target+' ครั้งแล้ว! ยอดเยี่ยม','ok');
+}
+
+function applyResult(r) {
+  if(!r) return;
+  SS.score=r.score||0;
+  if(r.score>0) SS.gf++;
+  setFb(r.fb, r.type, r.step);
+  if(r.score>0) document.getElementById('scoreNum').textContent=r.score+'%';
+}
+
+function setFb(txt, type, step) {
+  const bar=document.getElementById('fbBar'),t=document.getElementById('fbTxt');
+  t.textContent=txt; bar.className='feedback-bar '+(type||''); t.className='fb-text '+(type||'');
+  const panel=document.getElementById('statusPanel');
+  document.getElementById('scoreStatus').textContent=txt;
+  if(type==='good'){panel.className='panel panel-status good';document.getElementById('scoreHint').textContent='ทำดีมาก! ทำต่อไปได้เลย';}
+  else if(type==='bad'){panel.className='panel panel-status bad';document.getElementById('scoreHint').textContent='หยุดพักก่อน แล้วปรับท่าใหม่';}
+  else if(type==='warn'){panel.className='panel panel-status warn';document.getElementById('scoreHint').textContent='ปรับตามขั้นตอนที่ไฮไลต์';}
+  if(step!==undefined) buildSteps(curEx,step);
+}
+
+function buildDots(cnt) {
+  const target=EX[curEx]?.target||10;
+  document.getElementById('repDots').innerHTML=Array.from({length:target},(_,i)=>`<div class="rdot ${i<cnt?'ok':''}"></div>`).join('');
+}
+
+function updateJointsUI(A){
+  const set=(id,jpId,val,ok)=>{if(val===null||val===undefined)return;document.getElementById(id).textContent=val+'°';const jp=document.getElementById(jpId);jp.className='jpill jp-'+(ok==='ok'?'ok':ok==='bad'?'bad':'warn');jp.textContent=ok==='ok'?'ดี':ok==='bad'?'!':'~';};
+  set('jKL','jpKL',A.kneeL,A.kneeL>140?'ok':A.kneeL>90?'warn':'bad');
+  set('jKR','jpKR',A.kneeR,A.kneeR>140?'ok':A.kneeR>90?'warn':'bad');
+  const hip=avg2(A.hipL,A.hipR);set('jHip','jpHip',hip,hip>130?'ok':hip>90?'warn':'bad');
+  set('jNeck','jpNeck',A.neckTilt,A.neckTilt!==null?(A.neckTilt<10?'ok':'warn'):'warn');
+  const ank=avg2(A.ankleLiftL,A.ankleLiftR);
+  if(ank!==null){document.getElementById('jAnk').textContent=ank+'%';const jp=document.getElementById('jpAnk');jp.className='jpill jp-'+(ank>55?'ok':'warn');jp.textContent=ank>55?'ดี':'~';}
+  set('jTrk','jpTrk',A.trkRot,A.trkRot!==null?(A.trkRot<10?'ok':'warn'):'warn');
+}
+
+// ═══════════════════════════════════════
+// SESSION
+// ═══════════════════════════════════════
+function resetSess() {
+  SS={reps:0,score:0,gf:0,tf:0,startTime:camOn?Date.now():null,dur:0,phase:'neutral',holdOn:false,holdSec:0,holdInt:null,lastHipX:null};
+  clearHold(); clearInterval(timerInt);
+  document.getElementById('repNum').textContent='0';
+  document.getElementById('timerVal').textContent='00:00';
+  document.getElementById('holdNum').textContent='0';
+  document.getElementById('holdBarFill').style.width='0%';
+  document.getElementById('holdLbl').textContent='เริ่มค้างท่า';
+  document.getElementById('scoreNum').textContent='—';
+  document.getElementById('scoreStatus').textContent='รอเริ่มฝึก';
+  document.getElementById('scoreHint').textContent='กดปุ่ม "เปิดกล้อง" แล้วทำท่ากายภาพ';
+  document.getElementById('statusPanel').className='panel panel-status';
+  buildDots(0); buildSteps(curEx,-1);
+  if(camOn) startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(!SS.startTime)return;
+    const el=Math.floor((Date.now()-SS.startTime)/1000); SS.dur=el;
+    document.getElementById('timerVal').textContent=String(Math.floor(el/60)).padStart(2,'0')+':'+String(el%60).padStart(2,'0');
+  },1000);
+}
+
+async function saveSess() {
+  if(!CU) return toast('กรุณาล็อกอินก่อน','err');
+  if(SS.reps===0) return toast('ยังไม่มีข้อมูล ทำท่าก่อนแล้วค่อยบันทึก','warn');
+  const acc=SS.tf>0?Math.min(Math.round(SS.gf/SS.tf*100),100):SS.score;
+  const ex=EX[curEx];
+  const sess={id:Date.now(),ex:curEx,exName:ex.name,reps:SS.reps,score:acc,dur:SS.dur,
+    date:new Date().toLocaleDateString('th-TH'),time:new Date().toLocaleTimeString('th-TH'),
+    timestamp:Date.now(),synced:false};
+  CU.sessions=CU.sessions||[]; CU.sessions.unshift(sess);
+  USERS[CU.em]=CU; saveUsers();
+  showLoader('กำลังบันทึกลง Google Sheets (Data)...');
+  const r=await sheetSaveSession(sess); hideLoader();
+  if(r&&r.success){sess.synced=true;USERS[CU.em]=CU;saveUsers();updateSheetsUI(true);toast('บันทึกและ Sync ลง Sheets แล้ว','ok');}
+  else toast('บันทึกแล้ว — กด "Sync" เพื่ออัปโหลด','warn');
+  updateStats(); renderHist(); buildExList(); buildWeekChart();
+}
+
+// ═══════════════════════════════════════
+// HISTORY + STATS
+// ═══════════════════════════════════════
+function updateStats() {
+  if(!CU) return;
+  const ses=CU.sessions||[];
+  document.getElementById('stS').textContent=ses.length;
+  document.getElementById('stR').textContent=ses.reduce((s,x)=>s+x.reps,0);
+  const sc=ses.filter(x=>x.score>0).map(x=>x.score);
+  document.getElementById('stSc').textContent=sc.length?Math.round(sc.reduce((a,b)=>a+b,0)/sc.length)+'%':'—';
+  document.getElementById('stT').textContent=Math.round(ses.reduce((s,x)=>s+(x.dur||0),0)/60);
+  // Add active class to non-zero stats
+  ['ps1','ps2','ps3','ps4'].forEach((id,i)=>{
+    const vals=[ses.length,ses.reduce((s,x)=>s+x.reps,0),sc.length,ses.reduce((s,x)=>s+(x.dur||0),0)/60];
+    document.getElementById(id).classList.toggle('active',vals[i]>0);
+  });
+}
+
+function renderHist() {
+  if(!CU) return;
+  const ses=CU.sessions||[];
+  const list=document.getElementById('histList');
+  if(!ses.length){list.innerHTML='<div class="sess-empty"><p>ยังไม่มีประวัติการฝึก<br>เริ่มฝึกและกด "บันทึก" เพื่อดูผล</p></div>';return;}
+  list.innerHTML='<div class="sess-list">'+ses.map(s=>`
+    <div class="sess">
+      <div>
+        <div class="sess-name">${s.exName}<span class="sync-tag ${s.synced?'synced':'pending'}">${s.synced?'Sheets':'รอ Sync'}</span></div>
+        <div class="sess-meta">${s.date} · ${s.time} · ${fmtDur(s.dur||0)}</div>
+      </div>
+      <div class="sess-score" style="color:${s.score>=80?'var(--green)':s.score>=55?'var(--amber)':'var(--red)'}">${s.score}%</div>
+      <div><div class="sess-score" style="font-size:1rem">${s.reps}</div><div class="sess-reps">ครั้ง</div></div>
+    </div>`).join('')+'</div>';
+}
+
+async function syncAll() {
+  if(!CU) return;
+  const pending=(CU.sessions||[]).filter(s=>!s.synced);
+  if(!pending.length) return toast('ข้อมูลทั้งหมด Sync แล้ว','ok');
+  showLoader('กำลัง Sync '+pending.length+' รายการ...');
+  let ok=0;
+  for(const s of pending){const r=await sheetSaveSession(s);if(r&&r.success){s.synced=true;ok++;}}
+  USERS[CU.em]=CU; saveUsers(); hideLoader();
+  updateSheetsUI(ok>0); renderHist();
+  toast(ok>0?'Sync สำเร็จ '+ok+' รายการ':'Sync ไม่สำเร็จ ลองใหม่',ok>0?'ok':'warn');
+}
+
+function openSheets(){window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit','_blank');}
+function clearAll(){if(!confirm('ลบประวัติทั้งหมด?'))return;CU.sessions=[];USERS[CU.em]=CU;saveUsers();renderHist();updateStats();buildExList();buildWeekChart();toast('ลบประวัติแล้ว','warn');}
+function exportCSV(){
+  if(!CU)return;const ses=CU.sessions||[];if(!ses.length)return toast('ไม่มีข้อมูล','warn');
+  const hdr='ชื่อ,อีเมล,อายุ,เพศ,อาการ,ท่า,ครั้ง,คะแนน(%),ระยะเวลา(วิ),วันที่,เวลา,Sheets';
+  const rows=ses.map(s=>`${CU.fn} ${CU.ln},${CU.em},${CU.age||''},${CU.gen||''},${CU.cond||''},${s.exName},${s.reps},${s.score},${s.dur||0},${s.date},${s.time},${s.synced?'✓':''}`);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+hdr+'\n'+rows.join('\n')],{type:'text/csv;charset=utf-8;'}));
+  a.download='rehab_'+CU.fn+'_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();toast('ดาวน์โหลด CSV แล้ว','ok');
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+function avg2(a,b){if(a===null&&b===null)return null;if(a===null)return b;if(b===null)return a;return Math.round((a+b)/2);}
+function fmtDur(s){if(!s)return'0น 0ว';return Math.floor(s/60)+'น '+s%60+'ว';}
+function gv(id){return(document.getElementById(id)?.value||'').trim();}
+function showLoader(t){document.getElementById('loaderTxt').textContent=t||'';document.getElementById('loader').classList.remove('hide');}
+function hideLoader(){document.getElementById('loader').classList.add('hide');}
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=type+' on';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),3500);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+window.addEventListener('load',()=>{
+  setTimeout(()=>document.getElementById('loader').classList.add('hide'), 400);
+  const saved=localStorage.getItem('rh_cu');
+  if(saved&&USERS[saved]) loginUser(USERS[saved]);
+  selectEx('neck_tilt'); buildDots(0);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RehabAI — เข้าสู่ระบบ</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <style>
+        /* ── ปรับ auth-page สำหรับผู้สูงอายุ ── */
+
+        /* พื้นหลัง: sage-to-stone อ่อนๆ */
+        body.auth-page {
+            background: linear-gradient(150deg, #dce8e5 0%, #e4dff0 100%);
+        }
+
+        .auth-container {
+            max-width: 860px;
+            gap: 48px;
+            padding: 32px 24px;
+        }
+
+        /* ── ฝั่งซ้าย: เปลี่ยนจาก white → dark text ── */
+        .auth-brand {
+            color: #1A3A38;          /* เข้ม contrast ดี */
+        }
+
+        .brand-icon {
+            background: #3B7268;     /* teal เข้ม */
+            width: 96px;
+            height: 96px;
+            border-radius: 26px;
+            margin-bottom: 24px;
+        }
+        .brand-icon svg {
+            width: 56px;
+            height: 56px;
+            color: #ffffff;
+        }
+
+        .auth-brand h1 {
+            font-size: 48px;
+            font-weight: 900;
+            color: #1A3A38;
+            margin-bottom: 14px;
+            letter-spacing: -0.5px;
+        }
+
+        .auth-brand p {
+            font-size: 18px;
+            opacity: 1;              /* ลบ opacity */
+            color: #3D5A57;
+            line-height: 1.8;
+            margin-bottom: 24px;
+        }
+
+        .brand-badges {
+            gap: 12px;
+        }
+        .brand-badges .badge {
+            font-size: 15px;
+            padding: 8px 20px;
+            font-weight: 800;
+        }
+        .brand-badges .badge-blue {
+            background: rgba(59,114,104,0.15);
+            color: #2A5A52;
+            border: 1.5px solid rgba(59,114,104,0.3);
+        }
+        .brand-badges .badge-green {
+            background: rgba(90,77,127,0.12);
+            color: #5A4D7F;
+            border: 1.5px solid rgba(90,77,127,0.25);
+        }
+
+        /* ── การ์ดฟอร์ม: ใหญ่ขึ้น, อ่านง่ายขึ้น ── */
+        .auth-card {
+            border-radius: 24px;
+            padding: 36px 32px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+        }
+
+        /* Tabs */
+        .auth-tabs {
+            margin-bottom: 28px;
+            border-bottom: 2px solid #DDD9D0;
+        }
+        .auth-tab {
+            font-size: 18px;
+            font-weight: 700;
+            padding: 12px 16px;
+            color: #7B8B89;
+        }
+        .auth-tab.active {
+            color: #3B7268;
+            border-bottom-color: #3B7268;
+        }
+
+        /* Form labels */
+        .form-group label {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1A3A38;
+            margin-bottom: 8px;
+        }
+
+        /* Inputs: สูงขึ้น, ขอบชัด, font ใหญ่ */
+        .form-group input,
+        .form-group select {
+            padding: 16px 18px;
+            font-size: 18px;
+            border: 2px solid #C8C3BA;
+            border-radius: 12px;
+            min-height: 58px;
+            color: #1A3A38;
+            background: #FAFAF8;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #3B7268;
+            box-shadow: 0 0 0 4px rgba(59,114,104,0.15);
+            background: #fff;
+        }
+        .form-group input::placeholder {
+            color: #9CA3A1;
+        }
+
+        /* Error */
+        .form-error {
+            font-size: 16px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        /* Submit button */
+        .btn-primary.btn-full {
+            min-height: 60px;
+            font-size: 18px;
+            font-weight: 800;
+            border-radius: 14px;
+            background: #3B7268;
+            letter-spacing: 0.2px;
+        }
+        .btn-primary.btn-full:hover:not(:disabled) {
+            background: #2A5A52;
+        }
+        .btn-primary.btn-full:disabled {
+            background: #3B7268;
+            opacity: 0.6;
+        }
+
+        /* ── Responsive: หน้าจอเล็ก → 1 คอลัมน์ ── */
+        @media (max-width: 700px) {
+            .auth-brand { display: block; padding: 0 0 8px; }
+            .brand-icon { width: 72px; height: 72px; border-radius: 18px; }
+            .brand-icon svg { width: 40px; height: 40px; }
+            .auth-brand h1 { font-size: 36px; margin-bottom: 8px; }
+            .auth-brand p  { font-size: 16px; }
+            .auth-card { padding: 28px 20px; }
+            .auth-tab  { font-size: 16px; }
+            .form-group input, .form-group select { font-size: 16px; min-height: 52px; }
+            .btn-primary.btn-full { min-height: 54px; font-size: 17px; }
+        }
+    </style>
+</head>
+<body class="auth-page">
+
+<div class="auth-container">
+    <!-- ── ฝั่งซ้าย: Brand ── -->
+    <div class="auth-brand">
+        <div class="brand-icon">
+            <i data-lucide="stethoscope" aria-hidden="true"></i>
+        </div>
+        <h1>RehabAI</h1>
+        <p>ระบบกายภาพบำบัด & ฝึกการพูด<br>สำหรับผู้ป่วยพาร์กินสัน</p>
+        <div class="brand-badges">
+            <span class="badge badge-blue">LSVT BIG</span>
+            <span class="badge badge-green">LSVT LOUD</span>
+        </div>
+    </div>
+
+    <!-- ── ฝั่งขวา: ฟอร์ม ── -->
+    <div class="auth-card">
+        <div class="auth-tabs">
+            <button class="auth-tab active" onclick="switchTab('login')">เข้าสู่ระบบ</button>
+            <button class="auth-tab"        onclick="switchTab('register')">สมัครสมาชิก</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="loginEmail">อีเมล</label>
+                <input type="email" id="loginEmail"
+                       placeholder="example@email.com"
+                       autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">รหัสผ่าน</label>
+                <input type="password" id="loginPassword"
+                       placeholder="••••••••"
+                       autocomplete="current-password" required>
+            </div>
+            <div id="loginError" class="form-error hidden" role="alert"></div>
+            <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+                <i data-lucide="log-in" aria-hidden="true"></i>
+                เข้าสู่ระบบ
+            </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="auth-form hidden" onsubmit="handleRegister(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="regFirstName">ชื่อ</label>
+                    <input type="text" id="regFirstName" placeholder="ชื่อ"
+                           autocomplete="given-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="regLastName">นามสกุล</label>
+                    <input type="text" id="regLastName" placeholder="นามสกุล"
+                           autocomplete="family-name" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="regAge">อายุ</label>
+                    <input type="number" id="regAge" placeholder="อายุ"
+                           min="1" max="120" required>
+                </div>
+                <div class="form-group">
+                    <label for="regGender">เพศ</label>
+                    <select id="regGender" required>
+                        <option value="">เลือกเพศ</option>
+                        <option value="ชาย">ชาย</option>
+                        <option value="หญิง">หญิง</option>
+                        <option value="อื่นๆ">อื่นๆ</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="regCondition">ระยะของโรค</label>
+                <select id="regCondition" required>
+                    <option value="">เลือกระยะ</option>
+                    <option value="ระยะแรก (Stage 1-2)">ระยะแรก (Stage 1-2)</option>
+                    <option value="ระยะกลาง (Stage 3)">ระยะกลาง (Stage 3)</option>
+                    <option value="ระยะสูง (Stage 4-5)">ระยะสูง (Stage 4-5)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="regEmail">อีเมล</label>
+                <input type="email" id="regEmail" placeholder="example@email.com"
+                       autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="regPassword">รหัสผ่าน <span style="font-weight:400;color:#7B8B89;font-size:15px">(อย่างน้อย 6 ตัวอักษร)</span></label>
+                <input type="password" id="regPassword" placeholder="••••••••"
+                       autocomplete="new-password" minlength="6" required>
+            </div>
+            <div id="registerError" class="form-error hidden" role="alert"></div>
+            <button type="submit" class="btn btn-primary btn-full" id="registerBtn">
+                <i data-lucide="user-plus" aria-hidden="true"></i>
+                สมัครสมาชิก
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+    auth.onAuthStateChanged(user => {
+        if (user) window.location.href = 'index.html';
+        else lucide.createIcons();
+    });
+
+    function switchTab(tab) {
+        document.querySelectorAll('.auth-tab').forEach((t, i) => {
+            t.classList.toggle('active', (i === 0) === (tab === 'login'));
+        });
+        document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
+        document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const btn   = document.getElementById('loginBtn');
+        const errEl = document.getElementById('loginError');
+        errEl.classList.add('hidden');
+        btn.disabled    = true;
+        btn.textContent = 'กำลังเข้าสู่ระบบ...';
+
+        try {
+            await auth.signInWithEmailAndPassword(
+                document.getElementById('loginEmail').value,
+                document.getElementById('loginPassword').value
+            );
+            window.location.href = 'index.html';
+        } catch (err) {
+            errEl.textContent = translateAuthError(err.code);
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="log-in" aria-hidden="true"></i> เข้าสู่ระบบ';
+            lucide.createIcons();
+        }
+    }
+
+    async function handleRegister(e) {
+        e.preventDefault();
+        const btn   = document.getElementById('registerBtn');
+        const errEl = document.getElementById('registerError');
+        errEl.classList.add('hidden');
+        btn.disabled    = true;
+        btn.textContent = 'กำลังสมัครสมาชิก...';
+
+        try {
+            const cred = await auth.createUserWithEmailAndPassword(
+                document.getElementById('regEmail').value,
+                document.getElementById('regPassword').value
+            );
+            await db.collection('users').doc(cred.user.uid).set({
+                email:     cred.user.email,
+                firstName: document.getElementById('regFirstName').value,
+                lastName:  document.getElementById('regLastName').value,
+                age:       parseInt(document.getElementById('regAge').value),
+                gender:    document.getElementById('regGender').value,
+                condition: document.getElementById('regCondition').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            window.location.href = 'index.html';
+        } catch (err) {
+            errEl.textContent = translateAuthError(err.code);
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="user-plus" aria-hidden="true"></i> สมัครสมาชิก';
+            lucide.createIcons();
+        }
+    }
+
+    function translateAuthError(code) {
+        const errors = {
+            'auth/email-already-in-use': 'อีเมลนี้ถูกใช้งานแล้ว',
+            'auth/invalid-email':        'รูปแบบอีเมลไม่ถูกต้อง',
+            'auth/weak-password':        'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+            'auth/user-not-found':       'ไม่พบบัญชีนี้ในระบบ',
+            'auth/wrong-password':       'รหัสผ่านไม่ถูกต้อง',
+            'auth/invalid-credential':   'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+            'auth/too-many-requests':    'ลองใหม่อีกครั้งในภายหลัง',
+        };
+        return errors[code] || 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+    }
+</script>
+
+</body>
+</html>

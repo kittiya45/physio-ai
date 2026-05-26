@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RehabAI — LSVT BIG</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="header-inner">
+        <a href="index.html" class="btn btn-ghost btn-sm">
+            <i data-lucide="arrow-left"></i> กลับ
+        </a>
+        <div class="header-brand">
+            <span class="section-badge badge-blue">LSVT BIG</span>
+            <span id="exerciseTitle" class="header-title">กายภาพบำบัด</span>
+        </div>
+        <div style="width:80px"></div>
+    </div>
+</header>
+
+<main class="exercise-layout">
+    <!-- Camera Panel -->
+    <div class="camera-panel">
+        <div class="camera-wrap">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div class="camera-overlay" id="cameraOverlay">
+                <div class="overlay-icon"><i data-lucide="camera"></i></div>
+                <p>กำลังเปิดกล้อง...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-val" id="repCount">0</div>
+                <div class="stat-lbl">ครั้ง (Reps)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-val" id="timerDisplay">0:00</div>
+                <div class="stat-lbl">เวลา</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-val" id="scoreDisplay">—</div>
+                <div class="stat-lbl">คะแนน</div>
+            </div>
+        </div>
+
+        <div class="pose-status" id="poseStatus">
+            <div class="status-dot dot-gray"></div>
+            <span>รอการตรวจจับท่า...</span>
+        </div>
+
+        <div class="angle-display hidden" id="angleDisplay">
+            <div class="angle-label">มุมข้อศอก / เข่า</div>
+            <div class="angle-value" id="angleValue">—°</div>
+            <div class="angle-bar-wrap">
+                <div class="angle-bar" id="angleBar"></div>
+            </div>
+        </div>
+
+        <div class="rep-guide" id="repGuide">
+            <div class="guide-step" id="guideStep">เริ่มท่าเริ่มต้น</div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-danger btn-lg" id="stopBtn" onclick="stopExercise()" disabled>
+                <i data-lucide="stop-circle"></i> หยุดและบันทึก
+            </button>
+        </div>
+
+        <!-- Result Panel (hidden until done) -->
+        <div id="resultPanel" class="result-panel hidden">
+            <h3>ผลการฝึก</h3>
+            <div class="result-grid">
+                <div class="result-item">
+                    <span class="result-label">ท่าที่ตรวจจับ</span>
+                    <span class="result-value" id="resultExercise">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">จำนวน Reps</span>
+                    <span class="result-value" id="resultReps">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">เวลา</span>
+                    <span class="result-value" id="resultDuration">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">คะแนน</span>
+                    <span class="result-value" id="resultScore">—</span>
+                </div>
+            </div>
+            <div id="saveStatus" class="save-status"></div>
+            <a href="index.html" class="btn btn-primary btn-full" style="margin-top:12px">
+                <i data-lucide="home"></i> กลับหน้าหลัก
+            </a>
+        </div>
+    </div>
+</main>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+// ─── Lucide icons for JS-dynamic status messages ──────────────────────────────
+const SVG = {
+    check: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>`,
+    undo:  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>`,
+    alert: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+};
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
+
+const params = new URLSearchParams(location.search);
+const exerciseType = params.get('type') || 'bicep';
+
+// dir:'dec' = มุมลดลงขณะออกกำลัง (งอ)  |  dir:'inc' = มุมเพิ่มขึ้น (ยก/เหยียด)
+// joints: [A, B, C] → B คือจุดหมุน (elbow/knee/shoulder)
+// MediaPipe: 11=Lshoulder 12=Rshoulder 13=Lelbow 14=Relbow 15=Lwrist 16=Rwrist
+//            23=Lhip 24=Rhip 25=Lknee 26=Rknee 27=Lankle 28=Rankle
+const EXERCISE_CONFIG = {
+    bicep:     { name:'งอแขน (Bicep Curl)',             icon:'dumbbell',          joints:[12,14,16], dir:'dec', start:150, peak:40  },
+    squat:     { name:'ย่อตัว (Squat)',                 icon:'chevrons-down',      joints:[24,26,28], dir:'dec', start:160, peak:90  },
+    shoulder:  { name:'ยกแขนด้านข้าง (Lateral Raise)', icon:'arrow-left-right',   joints:[24,12,14], dir:'inc', start:35,  peak:80  },
+    overhead:  { name:'ยกแขนเหนือหัว (Overhead Reach)', icon:'arrow-up-to-line',  joints:[24,12,16], dir:'inc', start:35,  peak:145 },
+    kneelift:  { name:'ยกเข่า (Knee Lift)',             icon:'chevron-up',         joints:[12,24,26], dir:'dec', start:175, peak:90  },
+    lunge:     { name:'ก้าวขา (Forward Lunge)',         icon:'footprints',         joints:[23,25,27], dir:'dec', start:165, peak:95  },
+    armextend: { name:'เหยียดแขน (Arm Extension)',      icon:'maximize-2',         joints:[11,13,15], dir:'inc', start:60,  peak:155 },
+    sitstand:  { name:'ลุก-นั่ง (Sit-to-Stand)',        icon:'arrow-up-from-line', joints:[24,26,28], dir:'dec', start:160, peak:70  }
+};
+const config = EXERCISE_CONFIG[exerciseType] || EXERCISE_CONFIG.bicep;
+
+document.getElementById('exerciseTitle').textContent = config.name;
+document.title = `RehabAI — ${config.name}`;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+let seconds = 0, timerInterval = null;
+let reps = 0, repState = 'start';
+let latestKeypoints = [];
+let exerciseStarted = false;
+
+// ─── Auth check ───────────────────────────────────────────────────────────────
+
+auth.onAuthStateChanged(user => {
+    if (!user) window.location.href = 'login.html';
+    else {
+        lucide.createIcons();
+        startCamera();
+    }
+});
+
+// ─── Timer ───────────────────────────────────────────────────────────────────
+
+function startTimer() {
+    timerInterval = setInterval(() => {
+        seconds++;
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        document.getElementById('timerDisplay').textContent =
+            `${m}:${s.toString().padStart(2,'0')}`;
+    }, 1000);
+}
+
+// ─── Angle Calculator ─────────────────────────────────────────────────────────
+
+function calcAngle(a, b, c) {
+    const rad = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs(rad * 180 / Math.PI);
+    if (angle > 180) angle = 360 - angle;
+    return angle;
+}
+
+// ─── Rep Counter ──────────────────────────────────────────────────────────────
+
+function updateRepCounter(landmarks) {
+    const [ai, bi, ci] = config.joints;
+    const a = landmarks[ai], b = landmarks[bi], c = landmarks[ci];
+    if (!a || !b || !c) return;
+
+    const angle = Math.round(calcAngle(a, b, c));
+
+    document.getElementById('angleDisplay').classList.remove('hidden');
+    document.getElementById('angleValue').textContent = `${angle}°`;
+    document.getElementById('angleBar').style.width = `${Math.min(angle / 180, 1) * 100}%`;
+
+    const { start, peak, dir } = config;
+    const guideStep = document.getElementById('guideStep');
+
+    if (dir === 'dec') {
+        if (angle > start && repState !== 'start') {
+            repState = 'start';
+            guideStep.innerHTML = SVG.undo + 'กลับสู่ท่าเริ่มต้น';
+        }
+        if (angle < peak && repState === 'start') {
+            repState = 'peak';
+            reps++;
+            document.getElementById('repCount').textContent = reps;
+            guideStep.innerHTML = SVG.check + 'นับ 1 ครั้ง! ทำต่อไป';
+        }
+    } else {
+        if (angle < start && repState !== 'start') {
+            repState = 'start';
+            guideStep.innerHTML = SVG.undo + 'กลับสู่ท่าเริ่มต้น';
+        }
+        if (angle > peak && repState === 'start') {
+            repState = 'peak';
+            reps++;
+            document.getElementById('repCount').textContent = reps;
+            guideStep.innerHTML = SVG.check + 'นับ 1 ครั้ง! ทำต่อไป';
+        }
+    }
+}
+
+// ─── MediaPipe Pose ───────────────────────────────────────────────────────────
+
+function startCamera() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const pose = new Pose({
+        locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
+    });
+    pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+
+    pose.onResults(results => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(results.image, 0, 0);
+
+        if (results.poseLandmarks) {
+            document.getElementById('cameraOverlay').style.display = 'none';
+
+            if (!exerciseStarted) {
+                exerciseStarted = true;
+                startTimer();
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('poseStatus').innerHTML =
+                    '<div class="status-dot dot-green"></div><span>ตรวจจับร่างกายได้แล้ว</span>';
+            }
+
+            latestKeypoints = [];
+            results.poseLandmarks.forEach(lm => {
+                latestKeypoints.push(lm.x, lm.y, lm.z);
+            });
+
+            updateRepCounter(results.poseLandmarks);
+
+            window.drawConnectors(ctx, results.poseLandmarks, Pose.POSE_CONNECTIONS,
+                { color: '#3B82F6', lineWidth: 3 });
+            window.drawLandmarks(ctx, results.poseLandmarks,
+                { color: '#EF4444', lineWidth: 2, radius: 4 });
+        }
+    });
+
+    const camera = new Camera(video, {
+        onFrame: async () => await pose.send({ image: video }),
+        width: 640, height: 480
+    });
+    camera.start();
+}
+
+// ─── Stop & Save ──────────────────────────────────────────────────────────────
+
+async function stopExercise() {
+    clearInterval(timerInterval);
+    document.getElementById('stopBtn').disabled = true;
+
+    let score = 0;
+    let predictedLabel = config.name;
+
+    if (latestKeypoints.length > 0) {
+        try {
+            const res = await fetch('http://127.0.0.1:5001/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keypoints: latestKeypoints })
+            });
+            const data = await res.json();
+            predictedLabel = data.prediction;
+            score = Math.round((data.confidence || 0) * 100);
+        } catch {
+            score = reps > 0 ? Math.min(reps * 10, 100) : 0;
+        }
+    }
+
+    document.getElementById('resultExercise').textContent = predictedLabel;
+    document.getElementById('resultReps').textContent = `${reps} ครั้ง`;
+    document.getElementById('resultDuration').textContent = `${seconds} วินาที`;
+    document.getElementById('resultScore').textContent = `${score}%`;
+    document.getElementById('scoreDisplay').textContent = `${score}%`;
+    document.getElementById('resultPanel').classList.remove('hidden');
+
+    lucide.createIcons();
+
+    const statusEl = document.getElementById('saveStatus');
+    statusEl.innerHTML = 'กำลังบันทึก...';
+    statusEl.className = 'save-status saving';
+
+    try {
+        await saveSession({
+            type: 'lsvt_big',
+            exerciseName: predictedLabel,
+            reps,
+            score,
+            duration: seconds
+        });
+        statusEl.innerHTML = SVG.check + 'บันทึกข้อมูลสำเร็จ';
+        statusEl.className = 'save-status success';
+    } catch (err) {
+        statusEl.innerHTML = SVG.alert + 'บันทึกไม่สำเร็จ: ' + err.message;
+        statusEl.className = 'save-status error';
+    }
+}
+</script>
+
+</body>
+</html>

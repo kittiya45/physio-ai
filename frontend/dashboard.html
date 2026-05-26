@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RehabAI — ผลการฝึก</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="header-inner">
+        <a href="index.html" class="btn btn-ghost btn-sm">
+            <i data-lucide="arrow-left"></i> กลับ
+        </a>
+        <div class="header-brand">
+            <span class="header-icon"><i data-lucide="bar-chart-2"></i></span>
+            <span class="header-title">ผลการฝึก</span>
+        </div>
+        <div style="width:80px"></div>
+    </div>
+</header>
+
+<main class="dashboard-layout">
+
+    <!-- User Info -->
+    <div class="user-card" id="userCard">
+        <div class="user-avatar" id="userInitials">—</div>
+        <div class="user-info">
+            <div class="user-name" id="userName">กำลังโหลด...</div>
+            <div class="user-meta" id="userMeta"></div>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid">
+        <div class="stat-card-dash">
+            <div class="stat-icon"><i data-lucide="activity"></i></div>
+            <div class="stat-num" id="totalSessions">—</div>
+            <div class="stat-lbl">ครั้งทั้งหมด</div>
+        </div>
+        <div class="stat-card-dash">
+            <div class="stat-icon"><i data-lucide="clock"></i></div>
+            <div class="stat-num" id="totalMinutes">—</div>
+            <div class="stat-lbl">นาทีรวม</div>
+        </div>
+        <div class="stat-card-dash">
+            <div class="stat-icon"><i data-lucide="dumbbell"></i></div>
+            <div class="stat-num" id="totalBig">—</div>
+            <div class="stat-lbl">LSVT BIG</div>
+        </div>
+        <div class="stat-card-dash">
+            <div class="stat-icon"><i data-lucide="mic"></i></div>
+            <div class="stat-num" id="totalLoud">—</div>
+            <div class="stat-lbl">LSVT LOUD</div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <button class="filter-tab active" onclick="applyFilter('all')">ทั้งหมด</button>
+        <button class="filter-tab" onclick="applyFilter('lsvt_big')">LSVT BIG</button>
+        <button class="filter-tab" onclick="applyFilter('lsvt_loud')">LSVT LOUD</button>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+        <div class="chart-card">
+            <h4>ความคืบหน้า 7 วัน (คะแนน)</h4>
+            <canvas id="progressChart" height="180"></canvas>
+        </div>
+        <div class="chart-card">
+            <h4>สัดส่วนการฝึก</h4>
+            <canvas id="typeChart" height="180"></canvas>
+        </div>
+    </div>
+
+    <!-- Sessions Table -->
+    <div class="table-card">
+        <div class="table-header-row">
+            <h4>ประวัติการฝึก</h4>
+            <span id="sessionCount" class="session-count">— รายการ</span>
+        </div>
+        <div id="loadingMsg" class="loading-msg">กำลังโหลด...</div>
+        <div id="emptyMsg" class="empty-msg hidden">ยังไม่มีข้อมูลการฝึก</div>
+        <div class="table-wrap" id="tableWrap" style="display:none">
+            <table class="sessions-table">
+                <thead>
+                    <tr>
+                        <th>วันที่</th>
+                        <th>เวลา</th>
+                        <th>ประเภท</th>
+                        <th>ท่า / แบบฝึก</th>
+                        <th>Reps</th>
+                        <th>ระยะเวลา</th>
+                        <th>คะแนน</th>
+                    </tr>
+                </thead>
+                <tbody id="sessionsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+let allSessions = [];
+let progressChart = null, typeChart = null;
+
+auth.onAuthStateChanged(async user => {
+    if (!user) { window.location.href = 'login.html'; return; }
+
+    lucide.createIcons();
+
+    const profile = await getUserProfile(user.uid);
+    if (profile) {
+        document.getElementById('userName').textContent = `${profile.firstName} ${profile.lastName}`;
+        document.getElementById('userMeta').textContent =
+            `อายุ ${profile.age} ปี | ${profile.gender} | ${profile.condition}`;
+        document.getElementById('userInitials').textContent =
+            (profile.firstName[0] || '') + (profile.lastName[0] || '');
+    } else {
+        document.getElementById('userName').textContent = user.email;
+    }
+
+    loadSessions(user.uid);
+});
+
+async function loadSessions(uid) {
+    try {
+        const snap = await db.collection('sessions')
+            .where('userId', '==', uid)
+            .orderBy('timestamp', 'desc')
+            .limit(100)
+            .get();
+
+        allSessions = snap.docs.map(d => d.data());
+        renderAll(allSessions);
+    } catch (err) {
+        document.getElementById('loadingMsg').textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+    }
+}
+
+function applyFilter(type) {
+    document.querySelectorAll('.filter-tab').forEach((t, i) => {
+        const types = ['all', 'lsvt_big', 'lsvt_loud'];
+        t.classList.toggle('active', types[i] === type);
+    });
+    const filtered = type === 'all' ? allSessions : allSessions.filter(s => s.type === type);
+    renderAll(filtered);
+}
+
+function renderAll(sessions) {
+    renderStats(allSessions);
+    renderTable(sessions);
+    renderCharts(sessions);
+}
+
+function renderStats(sessions) {
+    const totalMin = Math.round(sessions.reduce((a, s) => a + (s.duration || 0), 0) / 60);
+    const bigCount = sessions.filter(s => s.type === 'lsvt_big').length;
+    const loudCount = sessions.filter(s => s.type === 'lsvt_loud').length;
+
+    document.getElementById('totalSessions').textContent = sessions.length;
+    document.getElementById('totalMinutes').textContent = totalMin;
+    document.getElementById('totalBig').textContent = bigCount;
+    document.getElementById('totalLoud').textContent = loudCount;
+}
+
+function renderTable(sessions) {
+    document.getElementById('loadingMsg').classList.add('hidden');
+    document.getElementById('sessionCount').textContent = `${sessions.length} รายการ`;
+
+    if (sessions.length === 0) {
+        document.getElementById('emptyMsg').classList.remove('hidden');
+        document.getElementById('tableWrap').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('emptyMsg').classList.add('hidden');
+    document.getElementById('tableWrap').style.display = 'block';
+
+    const tbody = document.getElementById('sessionsBody');
+    tbody.innerHTML = sessions.map(s => {
+        const typeBadge = s.type === 'lsvt_big'
+            ? '<span class="badge badge-blue">BIG</span>'
+            : '<span class="badge badge-green">LOUD</span>';
+        const score = s.score != null ? `${s.score}%` : '—';
+        const scoreClass = s.score >= 70 ? 'score-high' : s.score >= 40 ? 'score-mid' : 'score-low';
+        return `<tr>
+            <td>${s.date || '—'}</td>
+            <td>${s.time || '—'}</td>
+            <td>${typeBadge}</td>
+            <td>${s.exerciseName || '—'}</td>
+            <td>${s.reps || '—'}</td>
+            <td>${s.duration ? s.duration + ' วิ' : '—'}</td>
+            <td><span class="score-pill ${scoreClass}">${score}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+function renderCharts(sessions) {
+    // ─── Progress Chart (last 7 sessions by score) ────────────────────────────
+    const last7 = [...sessions].reverse().slice(-7);
+    const labels7 = last7.map((s, i) => s.date || `#${i+1}`);
+    const scores7 = last7.map(s => s.score || 0);
+
+    if (progressChart) progressChart.destroy();
+    progressChart = new Chart(document.getElementById('progressChart'), {
+        type: 'line',
+        data: {
+            labels: labels7,
+            datasets: [{
+                label: 'คะแนน (%)',
+                data: scores7,
+                borderColor: '#2563EB',
+                backgroundColor: 'rgba(37,99,235,0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#2563EB',
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { min: 0, max: 100, ticks: { callback: v => `${v}%` } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // ─── Type Donut Chart ─────────────────────────────────────────────────────
+    const bigC = sessions.filter(s => s.type === 'lsvt_big').length;
+    const loudC = sessions.filter(s => s.type === 'lsvt_loud').length;
+
+    if (typeChart) typeChart.destroy();
+    typeChart = new Chart(document.getElementById('typeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['LSVT BIG', 'LSVT LOUD'],
+            datasets: [{
+                data: [bigC, loudC],
+                backgroundColor: ['#2563EB', '#10B981'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>

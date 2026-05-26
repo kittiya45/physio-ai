@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RehabAI — LSVT LOUD</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="header-inner">
+        <a href="index.html" class="btn btn-ghost btn-sm">
+            <i data-lucide="arrow-left"></i> กลับ
+        </a>
+        <div class="header-brand">
+            <span class="section-badge badge-green">LSVT LOUD</span>
+            <span id="exerciseTitle" class="header-title">ฝึกการพูด</span>
+        </div>
+        <div style="width:80px"></div>
+    </div>
+</header>
+
+<main class="speech-layout">
+
+    <!-- dB Meter -->
+    <div class="meter-panel">
+        <div class="db-meter-wrap">
+            <svg class="db-arc" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+                <!-- Background arc -->
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#E2E8F0" stroke-width="16" stroke-linecap="round"/>
+                <!-- Colored arc (dynamic) -->
+                <path id="arcFill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#10B981" stroke-width="16" stroke-linecap="round"
+                    stroke-dasharray="251" stroke-dashoffset="251"/>
+                <!-- Threshold marker -->
+                <line id="thresholdMarker" x1="100" y1="25" x2="100" y2="15" stroke="#F59E0B" stroke-width="3"/>
+            </svg>
+            <div class="db-value-wrap">
+                <div class="db-value" id="dbValue">0</div>
+                <div class="db-unit">%</div>
+            </div>
+        </div>
+
+        <div class="meter-labels">
+            <span class="meter-label-low">เบา</span>
+            <span class="meter-label-target" id="targetLabel">เป้าหมาย</span>
+            <span class="meter-label-high">ดัง</span>
+        </div>
+
+        <div class="loudness-bar-wrap">
+            <div class="loudness-bar" id="loudnessBar"></div>
+            <div class="threshold-line" id="thresholdLine"></div>
+        </div>
+
+        <div class="volume-status" id="volumeStatus">
+            <span class="status-dot dot-gray"></span>
+            <span id="volumeStatusText">กดไมค์เพื่อเริ่ม</span>
+        </div>
+    </div>
+
+    <!-- Exercise Panel -->
+    <div class="speech-control-panel">
+
+        <!-- Exercise: Phonation -->
+        <div id="panelPhonation" class="speech-panel hidden">
+            <h3>ออกเสียง "อา" ให้นานและดังที่สุด</h3>
+            <div class="instruction-card">
+                <p>
+                    <span class="instr-icon"><i data-lucide="mic"></i></span>
+                    หายใจเข้าลึกๆ แล้วออกเสียง <strong>"อา"</strong> ให้ดังและยาวที่สุด
+                </p>
+                <p>เป้าหมาย: ≥ 15 วินาที และดังสม่ำเสมอ</p>
+            </div>
+            <div class="phonation-stats">
+                <div class="stat-box">
+                    <div class="stat-val" id="phonDuration">0.0</div>
+                    <div class="stat-lbl">วินาที</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="phonAboveThresh">0</div>
+                    <div class="stat-lbl">วินาทีที่ดัง</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val" id="phonScore">—</div>
+                    <div class="stat-lbl">คะแนน</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exercise: Counting -->
+        <div id="panelCounting" class="speech-panel hidden">
+            <h3>นับ 1–10 ให้ดังและชัดเจน</h3>
+            <div class="instruction-card">
+                <p>
+                    <span class="instr-icon"><i data-lucide="list-ordered"></i></span>
+                    นับ <strong>1 ถึง 10</strong> ให้ดังและชัดเจน แต่ละตัวเลขต้องดังพอ
+                </p>
+                <p>ระบบจะนับให้อัตโนมัติเมื่อออกเสียงดังพอ</p>
+            </div>
+            <div class="count-display">
+                <div class="count-number" id="countDisplay">0</div>
+                <div class="count-label">/ 10</div>
+            </div>
+            <div class="count-dots">
+                <span id="dot1" class="count-dot">1</span>
+                <span id="dot2" class="count-dot">2</span>
+                <span id="dot3" class="count-dot">3</span>
+                <span id="dot4" class="count-dot">4</span>
+                <span id="dot5" class="count-dot">5</span>
+                <span id="dot6" class="count-dot">6</span>
+                <span id="dot7" class="count-dot">7</span>
+                <span id="dot8" class="count-dot">8</span>
+                <span id="dot9" class="count-dot">9</span>
+                <span id="dot10" class="count-dot">10</span>
+            </div>
+        </div>
+
+        <!-- Exercise: Phrases -->
+        <div id="panelPhrases" class="speech-panel hidden">
+            <h3>พูดประโยคชีวิตประจำวัน</h3>
+            <div class="instruction-card">
+                <p>
+                    <span class="instr-icon"><i data-lucide="message-square"></i></span>
+                    อ่านและพูดประโยคด้านล่างให้ <strong>ดังและชัดเจน</strong>
+                </p>
+            </div>
+            <div class="phrase-card" id="phraseCard">
+                <div class="phrase-number" id="phraseNum">ประโยคที่ 1/5</div>
+                <div class="phrase-text" id="phraseText">โหลดประโยค...</div>
+            </div>
+            <div class="phrase-progress">
+                <div class="phrase-prog-bar" id="phraseProgBar"></div>
+            </div>
+            <div class="phrase-feedback" id="phraseFeedback"></div>
+            <div class="phrase-scores hidden" id="phraseScores">
+                <div id="phraseScoreList"></div>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="speech-buttons">
+            <button id="micBtn" class="btn btn-primary btn-lg mic-btn" onclick="toggleMic()">
+                <i data-lucide="mic"></i> กดค้างเพื่อพูด
+            </button>
+            <button id="nextPhraseBtn" class="btn btn-outline btn-lg hidden" onclick="nextPhrase()">
+                ถัดไป <i data-lucide="chevron-right"></i>
+            </button>
+            <button id="stopSpeechBtn" class="btn btn-danger btn-lg" onclick="finishExercise()" disabled>
+                <i data-lucide="save"></i> เสร็จสิ้น / บันทึก
+            </button>
+        </div>
+
+        <!-- Result Panel -->
+        <div id="speechResultPanel" class="result-panel hidden">
+            <h3>ผลการฝึก LSVT LOUD</h3>
+            <div class="result-grid" id="speechResultGrid"></div>
+            <div id="speechSaveStatus" class="save-status"></div>
+            <a href="index.html" class="btn btn-primary btn-full" style="margin-top:12px">
+                <i data-lucide="home"></i> กลับหน้าหลัก
+            </a>
+        </div>
+    </div>
+</main>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+// ─── Inline SVG helpers (for JS-dynamic icon+text) ────────────────────────────
+const SVG = {
+    check:  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>`,
+    alert:  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+    volume: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`,
+    mic:    `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`,
+    stop:   `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect width="14" height="14" x="5" y="5" rx="2"/></svg>`,
+    star:   `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+};
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const params = new URLSearchParams(location.search);
+const exerciseType = params.get('type') || 'phonation';
+
+const EXERCISE_INFO = {
+    phonation: 'ออกเสียงยาว (Sustained Phonation)',
+    counting:  'นับ 1-10 ดังๆ (Loud Counting)',
+    phrases:   'ประโยคชีวิตประจำวัน (Functional Phrases)'
+};
+
+const THAI_PHRASES = [
+    'ฉันต้องการน้ำดื่มหน่อยได้ไหม',
+    'วันนี้อากาศดีมากเลย',
+    'ขอบคุณมากนะคะ คุณใจดีมาก',
+    'ฉันรู้สึกดีขึ้นแล้วหลังจากออกกำลังกาย',
+    'สวัสดีครับ ผมชื่ออะไรนะ'
+];
+
+const LOUDNESS_THRESHOLD = 0.12;
+const ARC_LENGTH = 251;
+
+document.getElementById('exerciseTitle').textContent = EXERCISE_INFO[exerciseType];
+document.getElementById(`panel${capitalize(exerciseType)}`).classList.remove('hidden');
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ─── Audio State ──────────────────────────────────────────────────────────────
+
+let audioCtx = null, analyser = null, micStream = null;
+let animFrame = null;
+let isListening = false;
+
+// Phonation state
+let phonStartTime = null, phonElapsed = 0, phonAbove = 0, phonAvgSum = 0, phonSamples = 0;
+
+// Counting state
+let countDetected = 0, countInUtterance = false, countSilenceFrames = 0;
+const COUNT_SILENCE_THRESHOLD = 12;
+
+// Phrases state
+let phraseIndex = 0, phraseScores = [], phraseRecording = false;
+let phraseSum = 0, phraseSamples = 0;
+
+auth.onAuthStateChanged(user => {
+    if (!user) window.location.href = 'login.html';
+    else lucide.createIcons();
+});
+
+// ─── Microphone Init ──────────────────────────────────────────────────────────
+
+async function initMic() {
+    if (audioCtx) return true;
+    try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        const source = audioCtx.createMediaStreamSource(micStream);
+        source.connect(analyser);
+        return true;
+    } catch {
+        alert('ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาอนุญาตการใช้ไมโครโฟน');
+        return false;
+    }
+}
+
+function getRMS() {
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) {
+        const v = (buf[i] - 128) / 128;
+        sum += v * v;
+    }
+    return Math.sqrt(sum / buf.length);
+}
+
+// ─── Meter Update ─────────────────────────────────────────────────────────────
+
+function updateMeter(rms) {
+    const pct = Math.min(rms / 0.3, 1);
+    const displayPct = Math.round(pct * 100);
+
+    document.getElementById('dbValue').textContent = displayPct;
+    document.getElementById('loudnessBar').style.width = `${displayPct}%`;
+
+    const isLoud = rms >= LOUDNESS_THRESHOLD;
+    const color = pct < 0.4 ? '#EF4444' : pct < 0.65 ? '#F59E0B' : '#10B981';
+
+    document.getElementById('loudnessBar').style.background = color;
+
+    const offset = ARC_LENGTH - (pct * ARC_LENGTH);
+    document.getElementById('arcFill').setAttribute('stroke-dashoffset', offset);
+    document.getElementById('arcFill').setAttribute('stroke', color);
+
+    const statusDot = document.querySelector('#volumeStatus .status-dot');
+    const statusText = document.getElementById('volumeStatusText');
+    statusDot.className = `status-dot ${isLoud ? 'dot-green' : 'dot-red'}`;
+    statusText.textContent = isLoud ? 'เสียงดังพอ' : 'พูดให้ดังขึ้น';
+}
+
+// ─── Phonation Logic ──────────────────────────────────────────────────────────
+
+function phonationLoop() {
+    if (!isListening) return;
+    const rms = getRMS();
+    updateMeter(rms);
+
+    const now = Date.now();
+    phonElapsed = (now - phonStartTime) / 1000;
+    document.getElementById('phonDuration').textContent = phonElapsed.toFixed(1);
+
+    if (rms >= LOUDNESS_THRESHOLD) {
+        phonAbove += 1 / 60;
+        document.getElementById('phonAboveThresh').textContent = phonAbove.toFixed(0);
+    }
+
+    phonAvgSum += rms;
+    phonSamples++;
+
+    animFrame = requestAnimationFrame(phonationLoop);
+}
+
+// ─── Counting Logic ───────────────────────────────────────────────────────────
+
+function countingLoop() {
+    if (!isListening) return;
+    const rms = getRMS();
+    updateMeter(rms);
+
+    if (rms >= LOUDNESS_THRESHOLD) {
+        if (!countInUtterance) {
+            countInUtterance = true;
+            countSilenceFrames = 0;
+            if (countDetected < 10) {
+                countDetected++;
+                document.getElementById('countDisplay').textContent = countDetected;
+                document.getElementById(`dot${countDetected}`).classList.add('dot-active');
+                if (countDetected === 10) {
+                    document.getElementById('volumeStatusText').textContent = 'ยอดเยี่ยม! นับครบ 10 แล้ว!';
+                    document.getElementById('stopSpeechBtn').disabled = false;
+                    stopMicLoop();
+                    return;
+                }
+            }
+        }
+        countSilenceFrames = 0;
+    } else {
+        if (countInUtterance) {
+            countSilenceFrames++;
+            if (countSilenceFrames > COUNT_SILENCE_THRESHOLD) {
+                countInUtterance = false;
+            }
+        }
+    }
+
+    animFrame = requestAnimationFrame(countingLoop);
+}
+
+// ─── Phrases Logic ────────────────────────────────────────────────────────────
+
+function initPhrases() {
+    showPhrase(0);
+}
+
+function showPhrase(idx) {
+    if (idx >= THAI_PHRASES.length) {
+        finishPhrases();
+        return;
+    }
+    phraseIndex = idx;
+    document.getElementById('phraseNum').textContent = `ประโยคที่ ${idx + 1}/${THAI_PHRASES.length}`;
+    document.getElementById('phraseText').textContent = THAI_PHRASES[idx];
+    document.getElementById('phraseFeedback').textContent = '';
+    document.getElementById('nextPhraseBtn').classList.add('hidden');
+    document.getElementById('phraseProgBar').style.width = `${(idx / THAI_PHRASES.length) * 100}%`;
+    phraseSum = 0;
+    phraseSamples = 0;
+}
+
+function phrasesLoop() {
+    if (!isListening || !phraseRecording) return;
+    const rms = getRMS();
+    updateMeter(rms);
+    phraseSum += rms;
+    phraseSamples++;
+    animFrame = requestAnimationFrame(phrasesLoop);
+}
+
+function finishPhrases() {
+    document.getElementById('phraseProgBar').style.width = '100%';
+    document.getElementById('phraseScores').classList.remove('hidden');
+    const list = document.getElementById('phraseScoreList');
+    list.innerHTML = phraseScores.map((s, i) =>
+        `<div class="phrase-score-row">
+            <span>${THAI_PHRASES[i]}</span>
+            <span class="score-badge ${s >= 60 ? 'badge-green' : 'badge-red'}">${s}%</span>
+        </div>`
+    ).join('');
+    document.getElementById('stopSpeechBtn').disabled = false;
+}
+
+// ─── Mic Toggle ───────────────────────────────────────────────────────────────
+
+async function toggleMic() {
+    if (!(await initMic())) return;
+
+    if (isListening) {
+        stopMicLoop();
+        if (exerciseType === 'phrases' && phraseRecording) {
+            phraseRecording = false;
+            const avgRms = phraseSamples > 0 ? phraseSum / phraseSamples : 0;
+            const score = Math.round(Math.min(avgRms / 0.25, 1) * 100);
+            phraseScores.push(score);
+            const feedback = document.getElementById('phraseFeedback');
+            if (score >= 60) {
+                feedback.innerHTML = SVG.check + `ดี! คะแนน ${score}%`;
+            } else {
+                feedback.innerHTML = SVG.alert + `พูดให้ดังขึ้น คะแนน ${score}%`;
+            }
+            document.getElementById('nextPhraseBtn').classList.remove('hidden');
+        }
+        return;
+    }
+
+    isListening = true;
+    document.getElementById('micBtn').innerHTML = SVG.stop + 'หยุดพูด';
+    document.getElementById('micBtn').classList.add('btn-recording');
+
+    if (exerciseType === 'phonation') {
+        phonStartTime = Date.now();
+        phonElapsed = 0; phonAbove = 0; phonAvgSum = 0; phonSamples = 0;
+        document.getElementById('stopSpeechBtn').disabled = false;
+        phonationLoop();
+    } else if (exerciseType === 'counting') {
+        countingLoop();
+    } else if (exerciseType === 'phrases') {
+        phraseRecording = true;
+        phrasesLoop();
+    }
+}
+
+function stopMicLoop() {
+    isListening = false;
+    cancelAnimationFrame(animFrame);
+    document.getElementById('micBtn').innerHTML = SVG.mic + 'กดค้างเพื่อพูด';
+    document.getElementById('micBtn').classList.remove('btn-recording');
+    document.getElementById('dbValue').textContent = '0';
+    document.getElementById('loudnessBar').style.width = '0%';
+}
+
+function nextPhrase() {
+    showPhrase(phraseIndex + 1);
+    document.getElementById('nextPhraseBtn').classList.add('hidden');
+}
+
+// ─── Finish & Save ────────────────────────────────────────────────────────────
+
+async function finishExercise() {
+    stopMicLoop();
+    if (micStream) micStream.getTracks().forEach(t => t.stop());
+
+    let sessionData = { type: 'lsvt_loud', exerciseName: EXERCISE_INFO[exerciseType] };
+    let resultHTML = '';
+
+    if (exerciseType === 'phonation') {
+        const avgRms = phonSamples > 0 ? phonAvgSum / phonSamples : 0;
+        const avgPct = Math.round(Math.min(avgRms / 0.3, 1) * 100);
+        const score = Math.round((Math.min(phonAbove / 15, 1) * 0.6 + Math.min(avgPct / 70, 1) * 0.4) * 100);
+        sessionData = { ...sessionData, duration: Math.round(phonElapsed), phonationDuration: Math.round(phonAbove), avgDb: avgPct, score };
+        resultHTML = buildResult([
+            ['ระยะเวลาทั้งหมด', `${phonElapsed.toFixed(1)} วินาที`],
+            ['เวลาที่ดังพอ', `${phonAbove.toFixed(0)} วินาที`],
+            ['ความดังเฉลี่ย', `${avgPct}%`],
+            ['คะแนน', `${score}%`]
+        ]);
+    } else if (exerciseType === 'counting') {
+        const score = Math.round((countDetected / 10) * 100);
+        sessionData = { ...sessionData, reps: countDetected, score, duration: 0 };
+        resultHTML = buildResult([
+            ['นับได้', `${countDetected} / 10 ตัวเลข`],
+            ['คะแนน', `${score}%`]
+        ]);
+    } else if (exerciseType === 'phrases') {
+        const avg = phraseScores.length > 0
+            ? Math.round(phraseScores.reduce((a, b) => a + b, 0) / phraseScores.length)
+            : 0;
+        sessionData = { ...sessionData, score: avg, reps: phraseScores.length, avgDb: avg, duration: 0 };
+        resultHTML = buildResult([
+            ['ประโยคที่พูด', `${phraseScores.length} / ${THAI_PHRASES.length}`],
+            ['คะแนนเฉลี่ย', `${avg}%`]
+        ]);
+    }
+
+    document.getElementById('speechResultGrid').innerHTML = resultHTML;
+    document.getElementById('speechResultPanel').classList.remove('hidden');
+    document.getElementById('stopSpeechBtn').disabled = true;
+    lucide.createIcons();
+
+    const statusEl = document.getElementById('speechSaveStatus');
+    statusEl.innerHTML = 'กำลังบันทึก...';
+    statusEl.className = 'save-status saving';
+
+    try {
+        await saveSession(sessionData);
+        statusEl.innerHTML = SVG.check + 'บันทึกข้อมูลสำเร็จ';
+        statusEl.className = 'save-status success';
+    } catch (err) {
+        statusEl.innerHTML = SVG.alert + 'บันทึกไม่สำเร็จ: ' + err.message;
+        statusEl.className = 'save-status error';
+    }
+}
+
+function buildResult(rows) {
+    return rows.map(([label, value]) =>
+        `<div class="result-item">
+            <span class="result-label">${label}</span>
+            <span class="result-value">${value}</span>
+        </div>`
+    ).join('');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+if (exerciseType === 'phrases') initPhrases();
+
+// threshold line position (65% of bar)
+document.getElementById('thresholdLine').style.left = `${(LOUDNESS_THRESHOLD / 0.3) * 100}%`;
+</script>
+
+</body>
+</html>

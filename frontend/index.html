@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RehabAI — หน้าหลัก</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ── Layout ── */
+        .page-wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 28px 24px 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ── Header override ── */
+        .header-icon-svg { width: 26px; height: 26px; color: #3B7268; flex-shrink: 0; }
+        .header-btn-icon { width: 16px; height: 16px; }
+
+        /* ── Profile Card ── */
+        .profile-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 24px 24px 20px;
+            border: 1.5px solid #E8E4DC;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .profile-top { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+        .profile-avatar {
+            width: 58px; height: 58px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: 800; color: white; flex-shrink: 0;
+        }
+        .profile-info { flex: 1; min-width: 0; }
+        .profile-name {
+            font-size: 20px; font-weight: 800; color: #1A3A38;
+            line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .profile-meta { font-size: 14px; color: #527774; margin-top: 4px; }
+
+        /* Stage pill */
+        .stage-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; border-radius: 20px;
+            font-size: 13px; font-weight: 700; margin-top: 8px;
+        }
+        .stage-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .stage-early  { background: #D1FAE5; color: #065F46; }
+        .stage-early  .stage-dot { background: #059669; }
+        .stage-middle { background: #FEF3C7; color: #92400E; }
+        .stage-middle .stage-dot { background: #D97706; }
+        .stage-late   { background: #FEE2E2; color: #991B1B; }
+        .stage-late   .stage-dot { background: #DC2626; }
+
+        /* Stats row */
+        .profile-stats {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+            border-top: 1px solid #E8E4DC; padding-top: 20px;
+        }
+        .pstat { text-align: center; }
+        .pstat-num { font-size: 30px; font-weight: 800; color: #3B7268; line-height: 1; }
+        .pstat-lbl { font-size: 13px; color: #527774; margin-top: 6px; }
+
+        /* ── Stage Message ── */
+        .stage-msg {
+            background: #fff; border-radius: 16px; padding: 20px 22px;
+            display: flex; align-items: flex-start; gap: 16px;
+            border: 1.5px solid #E8E4DC; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .stage-msg-icon-wrap {
+            width: 46px; height: 46px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .stage-msg-icon-wrap svg { width: 24px; height: 24px; stroke-width: 2; }
+        .icon-wrap-green { background: #D1FAE5; color: #059669; }
+        .icon-wrap-amber { background: #FEF3C7; color: #D97706; }
+        .icon-wrap-red   { background: #FEE2E2; color: #DC2626; }
+        .stage-msg-text  { font-size: 15px; color: #1A3A38; line-height: 1.6; }
+        .stage-msg-title { font-weight: 700; margin-bottom: 4px; font-size: 16px; }
+        .stage-msg-body  { color: #527774; font-size: 14px; }
+
+        /* ── Section Header ── */
+        .section-head { display: flex; align-items: center; gap: 12px; padding: 0 2px; }
+        .section-head-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 800;
+        }
+        .section-head-pill svg { width: 14px; height: 14px; stroke-width: 2.5; }
+        .pill-big  { background: rgba(59,114,104,0.12); color: #2A5A52; border: 1.5px solid rgba(59,114,104,0.25); }
+        .pill-loud { background: rgba(123,110,165,0.12); color: #5A4D7F; border: 1.5px solid rgba(123,110,165,0.25); }
+        .section-head-title { font-size: 19px; font-weight: 800; color: #1A3A38; }
+
+        /* ── Exercise Section Card ── */
+        .ex-section {
+            background: #fff; border-radius: 20px; padding: 24px;
+            border: 1.5px solid #E8E4DC; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .ex-section-header { margin-bottom: 20px; }
+        .ex-section-title { font-size: 18px; font-weight: 800; color: #1A3A38; margin-bottom: 6px; }
+        .ex-section-desc  { font-size: 14px; color: #527774; line-height: 1.6; }
+
+        /* ── Exercise Grids ── */
+        .ex-grid   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .ex-grid-3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+        /* ── Exercise Card ── */
+        .ex-card {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 26px 16px 20px; border-radius: 16px;
+            text-decoration: none; background: #fff;
+            border: 1.5px solid #E8E4DC;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            gap: 12px; position: relative;
+            transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+        }
+        /* Hover — เปลี่ยนพื้นหลังตามสีประจำ section */
+        .ex-card:hover              { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.10); }
+        .ex-teal:hover              { background: #EAF5F2; border-color: #3B7268; }
+        .ex-lav:hover               { background: #EEE9F5; border-color: #7B6EA5; }
+
+        /* Active (กดค้าง) — เข้มขึ้นอีกหน่อย */
+        .ex-card:active             { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.10); }
+        .ex-teal:active             { background: #D2EBE6; border-color: #2A5A52; }
+        .ex-lav:active              { background: #E0D8F0; border-color: #5A4D7F; }
+
+        .ex-teal { border-top: 3px solid #3B7268; }
+        .ex-lav  { border-top: 3px solid #7B6EA5; }
+
+        /* ── SVG Illustration Wrap ── */
+        .ex-icon-wrap {
+            width: 72px; height: 84px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ex-icon-wrap svg { width: 64px; height: 80px; }
+        .icon-teal { color: #3B7268; }
+        .icon-lav  { color: #7B6EA5; }
+
+        .ex-name { font-size: 16px; font-weight: 700; color: #1A3A38; text-align: center; line-height: 1.3; }
+        .ex-sub  { font-size: 13px; color: #6B7B7A; text-align: center; }
+
+        /* ── Dashboard Button ── */
+        .dash-btn {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; padding: 20px 28px;
+            background: #3B7268; border: none; border-radius: 16px;
+            color: #fff; font-size: 17px; font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 4px 18px rgba(59,114,104,0.28);
+            transition: background 0.15s ease-out, transform 0.15s ease-out;
+        }
+        .dash-btn:hover { background: #2A5A52; transform: translateY(-2px); }
+        .dash-btn svg   { width: 22px; height: 22px; stroke-width: 2; flex-shrink: 0; }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .page-wrap { padding: 16px 12px 60px; gap: 14px; }
+            .ex-grid   { gap: 10px; }
+            .ex-grid-3 { gap: 10px; }
+            .ex-card   { padding: 20px 12px 16px; gap: 10px; }
+            .ex-icon-wrap { width: 60px; height: 70px; }
+            .ex-icon-wrap svg { width: 52px; height: 66px; }
+            .ex-name   { font-size: 15px; }
+            .ex-sub    { font-size: 12px; }
+            .pstat-num { font-size: 24px; }
+            .section-head-title { font-size: 17px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header class="app-header">
+    <div class="header-inner">
+        <div class="header-brand">
+            <i data-lucide="stethoscope" class="header-icon-svg" aria-hidden="true"></i>
+            <span class="header-title">RehabAI</span>
+        </div>
+        <div class="header-user">
+            <a href="dashboard.html" class="btn btn-outline btn-sm">
+                <i data-lucide="bar-chart-2" class="header-btn-icon" aria-hidden="true"></i>
+                ผลการฝึก
+            </a>
+            <button class="btn btn-ghost btn-sm" onclick="handleLogout()">
+                <i data-lucide="log-out" class="header-btn-icon" aria-hidden="true"></i>
+                ออกจากระบบ
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- ── Page Content ─────────────────────────────────────────────────────── -->
+<div class="page-wrap">
+
+    <!-- Skeleton Profile Card (แสดงระหว่างโหลด) -->
+    <div class="skeleton-card" id="skeletonProfile" aria-hidden="true">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div class="skeleton" style="width:54px;height:54px;border-radius:14px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+                <div class="skeleton" style="height:19px;width:55%;border-radius:6px"></div>
+                <div class="skeleton" style="height:13px;width:40%;border-radius:6px;margin-top:8px"></div>
+                <div class="skeleton" style="height:20px;width:32%;border-radius:20px;margin-top:8px"></div>
+            </div>
+        </div>
+        <div class="profile-stats">
+            <div class="pstat">
+                <div class="skeleton" style="height:26px;width:40px;margin:0 auto;border-radius:6px"></div>
+                <div class="skeleton" style="height:12px;width:60%;border-radius:6px;margin:6px auto 0"></div>
+            </div>
+            <div class="pstat">
+                <div class="skeleton" style="height:26px;width:40px;margin:0 auto;border-radius:6px"></div>
+                <div class="skeleton" style="height:12px;width:60%;border-radius:6px;margin:6px auto 0"></div>
+            </div>
+            <div class="pstat">
+                <div class="skeleton" style="height:26px;width:40px;margin:0 auto;border-radius:6px"></div>
+                <div class="skeleton" style="height:12px;width:60%;border-radius:6px;margin:6px auto 0"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Card -->
+    <div class="profile-card" id="profileCard" style="display:none" aria-live="polite">
+        <div class="profile-top">
+            <div class="profile-avatar" id="profileAvatar">—</div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">กำลังโหลด...</div>
+                <div class="profile-meta"  id="profileMeta"></div>
+                <div class="stage-pill"    id="stagePill">
+                    <span class="stage-dot"></span>
+                    <span id="stagePillText"></span>
+                </div>
+            </div>
+        </div>
+        <div class="profile-stats">
+            <div class="pstat">
+                <div class="pstat-num" id="statToday">—</div>
+                <div class="pstat-lbl">ครั้งวันนี้</div>
+            </div>
+            <div class="pstat">
+                <div class="pstat-num" id="statWeek">—</div>
+                <div class="pstat-lbl">สัปดาห์นี้</div>
+            </div>
+            <div class="pstat">
+                <div class="pstat-num" id="statTotal">—</div>
+                <div class="pstat-lbl">ทั้งหมด</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skeleton Stage Message (แสดงระหว่างโหลด) -->
+    <div class="skeleton-card" id="skeletonStageMsg" aria-hidden="true" style="border-radius:14px;padding:16px 18px">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+            <div class="skeleton" style="width:40px;height:40px;border-radius:10px;flex-shrink:0"></div>
+            <div style="flex:1">
+                <div class="skeleton" style="height:15px;width:55%;border-radius:6px"></div>
+                <div class="skeleton" style="height:13px;width:88%;border-radius:6px;margin-top:8px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage Message -->
+    <div class="stage-msg" id="stageMsg" style="display:none">
+        <div class="stage-msg-icon-wrap" id="stageMsgIconWrap">
+            <i id="stageMsgIcon" data-lucide="info" aria-hidden="true"></i>
+        </div>
+        <div class="stage-msg-text">
+            <div class="stage-msg-title" id="stageMsgTitle"></div>
+            <div class="stage-msg-body"  id="stageMsgBody"></div>
+        </div>
+    </div>
+
+    <!-- LSVT BIG Section -->
+    <div class="section-head">
+        <div class="section-head-pill pill-big">
+            <i data-lucide="activity" aria-hidden="true"></i>
+            LSVT BIG
+        </div>
+        <div class="section-head-title">กายภาพบำบัด</div>
+    </div>
+    <div class="ex-section">
+        <div class="ex-section-header">
+            <div class="ex-section-title">ท่าออกกำลังกายสำหรับคุณ</div>
+            <div class="ex-section-desc">เน้นการเคลื่อนไหวขนาดใหญ่ ช่วยลดอาการแข็งเกร็งและเคลื่อนไหวช้า</div>
+        </div>
+        <div class="ex-grid" id="bigGrid"></div>
+    </div>
+
+    <!-- LSVT LOUD Section -->
+    <div class="section-head">
+        <div class="section-head-pill pill-loud">
+            <i data-lucide="mic" aria-hidden="true"></i>
+            LSVT LOUD
+        </div>
+        <div class="section-head-title">ฝึกการพูด</div>
+    </div>
+    <div class="ex-section">
+        <div class="ex-section-header">
+            <div class="ex-section-title">แบบฝึกเสียงสำหรับคุณ</div>
+            <div class="ex-section-desc">ฝึกออกเสียงให้ดังและชัดเจน วัดความดังแบบ real-time</div>
+        </div>
+        <div class="ex-grid-3" id="loudGrid"></div>
+    </div>
+
+    <!-- Dashboard Shortcut -->
+    <a href="dashboard.html" class="dash-btn">
+        <i data-lucide="bar-chart-2" aria-hidden="true"></i>
+        ดูกราฟความคืบหน้าและประวัติการฝึก
+    </a>
+
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+<script>
+// ── SVG illustrations สำหรับท่ากายภาพบำบัด (human-figure) ───────────────────
+const SVG_ATTRS = 'viewBox="0 0 80 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+
+const BIG_SVGS = {
+    // งอแขน: ข้อศอกงอ, ปลายแขนชี้ขึ้น (Bicep Curl)
+    bicep: `<svg ${SVG_ATTRS}>
+        <circle cx="40" cy="11" r="8"/>
+        <line x1="40" y1="19" x2="40" y2="56"/>
+        <polyline points="32,30 14,50 26,33"/>
+        <polyline points="48,30 66,50 54,33"/>
+        <line x1="33" y1="56" x2="27" y2="86"/>
+        <line x1="47" y1="56" x2="53" y2="86"/>
+    </svg>`,
+    // ย่อตัว: เข่างอ, แขนยื่นหน้า (Squat)
+    squat: `<svg ${SVG_ATTRS}>
+        <circle cx="40" cy="16" r="8"/>
+        <line x1="40" y1="24" x2="40" y2="52"/>
+        <line x1="33" y1="36" x2="10" y2="42"/>
+        <line x1="47" y1="36" x2="70" y2="42"/>
+        <line x1="33" y1="52" x2="16" y2="68"/>
+        <line x1="16" y1="68" x2="12" y2="88"/>
+        <line x1="47" y1="52" x2="64" y2="68"/>
+        <line x1="64" y1="68" x2="68" y2="88"/>
+    </svg>`,
+    // ยกแขนด้านข้าง: แขนกางออกแนวนอน T-shape (Lateral Raise)
+    shoulder: `<svg ${SVG_ATTRS}>
+        <circle cx="40" cy="11" r="8"/>
+        <line x1="40" y1="19" x2="40" y2="62"/>
+        <line x1="33" y1="30" x2="5" y2="34"/>
+        <line x1="47" y1="30" x2="75" y2="34"/>
+        <line x1="33" y1="62" x2="27" y2="88"/>
+        <line x1="47" y1="62" x2="53" y2="88"/>
+    </svg>`,
+    // ยกแขนเหนือหัว: แขนยกสูงเหนือหัว V-shape (Overhead Reach)
+    overhead: `<svg ${SVG_ATTRS}>
+        <circle cx="40" cy="15" r="8"/>
+        <line x1="40" y1="23" x2="40" y2="64"/>
+        <line x1="34" y1="33" x2="15" y2="6"/>
+        <line x1="46" y1="33" x2="65" y2="6"/>
+        <line x1="33" y1="64" x2="27" y2="90"/>
+        <line x1="47" y1="64" x2="53" y2="90"/>
+    </svg>`,
+    // ยกเข่า: เข่าข้างหนึ่งยกสูงกว่าเอว (Knee Lift)
+    kneelift: `<svg ${SVG_ATTRS}>
+        <circle cx="40" cy="11" r="8"/>
+        <line x1="40" y1="19" x2="40" y2="58"/>
+        <line x1="33" y1="30" x2="16" y2="46"/>
+        <line x1="47" y1="30" x2="64" y2="46"/>
+        <line x1="35" y1="58" x2="29" y2="88"/>
+        <line x1="45" y1="58" x2="58" y2="43"/>
+        <line x1="58" y1="43" x2="54" y2="64"/>
+    </svg>`,
+    // ก้าวขา: ท่าลันจ์ ขาหน้า-ขาหลัง (Forward Lunge)
+    lunge: `<svg ${SVG_ATTRS}>
+        <circle cx="38" cy="14" r="8"/>
+        <line x1="38" y1="22" x2="38" y2="54"/>
+        <line x1="32" y1="36" x2="16" y2="44"/>
+        <line x1="44" y1="36" x2="60" y2="44"/>
+        <line x1="32" y1="54" x2="15" y2="70"/>
+        <line x1="15" y1="70" x2="12" y2="90"/>
+        <line x1="44" y1="54" x2="62" y2="62"/>
+        <line x1="62" y1="62" x2="68" y2="86"/>
+    </svg>`,
+    // เหยียดแขน: แขนยืดออกด้านข้าง-บน 45° (Arm Extension)
+    armextend: `<svg ${SVG_ATTRS}>
+        <circle cx="40" cy="11" r="8"/>
+        <line x1="40" y1="19" x2="40" y2="62"/>
+        <line x1="33" y1="30" x2="8" y2="16"/>
+        <line x1="47" y1="30" x2="72" y2="16"/>
+        <line x1="33" y1="62" x2="27" y2="88"/>
+        <line x1="47" y1="62" x2="53" y2="88"/>
+    </svg>`,
+    // ลุก-นั่ง: ลุกขึ้นจากเก้าอี้ (Sit-to-Stand)
+    sitstand: `<svg ${SVG_ATTRS}>
+        <line x1="8" y1="66" x2="72" y2="66"/>
+        <line x1="8" y1="44" x2="8" y2="80"/>
+        <line x1="72" y1="66" x2="72" y2="80"/>
+        <circle cx="40" cy="22" r="8"/>
+        <line x1="40" y1="30" x2="40" y2="60"/>
+        <line x1="33" y1="42" x2="16" y2="54"/>
+        <line x1="47" y1="42" x2="64" y2="54"/>
+        <line x1="33" y1="60" x2="24" y2="76"/>
+        <line x1="24" y1="76" x2="22" y2="90"/>
+        <line x1="47" y1="60" x2="56" y2="76"/>
+        <line x1="56" y1="76" x2="58" y2="90"/>
+    </svg>`,
+};
+
+const LOUD_SVGS = {
+    // ออกเสียง "อา": ปากเปิด + คลื่นเสียง (Sustained Phonation)
+    phonation: `<svg ${SVG_ATTRS}>
+        <circle cx="36" cy="11" r="8"/>
+        <path d="M31,18 Q36,24 41,18" stroke-width="2.5"/>
+        <path d="M49,9  Q57,12 49,15" stroke-width="2.5" fill="none"/>
+        <path d="M54,6  Q64,11 54,16" stroke-width="2.5" fill="none"/>
+        <path d="M59,3  Q72,10 59,19" stroke-width="2.5" fill="none"/>
+        <line x1="36" y1="19" x2="36" y2="60"/>
+        <line x1="29" y1="30" x2="14" y2="44"/>
+        <line x1="43" y1="30" x2="56" y2="44"/>
+        <line x1="28" y1="60" x2="22" y2="86"/>
+        <line x1="44" y1="60" x2="50" y2="86"/>
+    </svg>`,
+    // นับ 1-10: มือยกนับ + จุดนับ (Loud Counting)
+    counting: `<svg ${SVG_ATTRS}>
+        <circle cx="38" cy="11" r="8"/>
+        <path d="M33,17 Q38,23 43,17" stroke-width="2.5"/>
+        <line x1="38" y1="19" x2="38" y2="60"/>
+        <line x1="31" y1="30" x2="15" y2="46"/>
+        <line x1="45" y1="30" x2="66" y2="12"/>
+        <circle cx="70" cy="8"  r="5" fill="currentColor" stroke="none"/>
+        <circle cx="72" cy="18" r="4" fill="currentColor" stroke="none"/>
+        <circle cx="68" cy="27" r="3" fill="currentColor" stroke="none"/>
+        <line x1="30" y1="60" x2="24" y2="86"/>
+        <line x1="46" y1="60" x2="52" y2="86"/>
+    </svg>`,
+    // พูดประโยค: กล่องข้อความ + ปากเปิด (Functional Phrases)
+    phrases: `<svg ${SVG_ATTRS}>
+        <circle cx="34" cy="13" r="8"/>
+        <path d="M29,20 Q34,26 39,20" stroke-width="2.5"/>
+        <rect x="46" y="2" width="30" height="22" rx="5" stroke-width="2.5"/>
+        <polyline points="50,24 46,32 56,24" stroke-width="2.5"/>
+        <line x1="52" y1="9"  x2="71" y2="9"  stroke-width="1.8"/>
+        <line x1="52" y1="14" x2="68" y2="14" stroke-width="1.8"/>
+        <line x1="52" y1="19" x2="71" y2="19" stroke-width="1.8"/>
+        <line x1="34" y1="21" x2="34" y2="62"/>
+        <line x1="27" y1="32" x2="13" y2="46"/>
+        <line x1="41" y1="32" x2="54" y2="46"/>
+        <line x1="27" y1="62" x2="21" y2="88"/>
+        <line x1="41" y1="62" x2="47" y2="88"/>
+    </svg>`,
+};
+
+// ── ข้อมูลท่าออกกำลังกาย ──────────────────────────────────────────────────────
+const ALL_BIG = [
+    { type:'bicep',     svg: BIG_SVGS.bicep,     name:'งอแขน',         sub:'Bicep Curl'      },
+    { type:'squat',     svg: BIG_SVGS.squat,     name:'ย่อตัว',         sub:'Squat'           },
+    { type:'shoulder',  svg: BIG_SVGS.shoulder,  name:'ยกแขนด้านข้าง', sub:'Lateral Raise'   },
+    { type:'overhead',  svg: BIG_SVGS.overhead,  name:'ยกแขนเหนือหัว', sub:'Overhead Reach'  },
+    { type:'kneelift',  svg: BIG_SVGS.kneelift,  name:'ยกเข่า',         sub:'Knee Lift'       },
+    { type:'lunge',     svg: BIG_SVGS.lunge,     name:'ก้าวขา',         sub:'Forward Lunge'   },
+    { type:'armextend', svg: BIG_SVGS.armextend, name:'เหยียดแขน',      sub:'Arm Extension'   },
+    { type:'sitstand',  svg: BIG_SVGS.sitstand,  name:'ลุก-นั่ง',       sub:'Sit-to-Stand'    },
+];
+const ALL_LOUD = [
+    { type:'phonation', svg: LOUD_SVGS.phonation, name:'ออกเสียง "อา"', sub:'Sustained Phonation' },
+    { type:'counting',  svg: LOUD_SVGS.counting,  name:'นับ 1–10 ดังๆ', sub:'Loud Counting'       },
+    { type:'phrases',   svg: LOUD_SVGS.phrases,   name:'พูดประโยค',      sub:'Functional Phrases'  },
+];
+
+// ── Config ตามระยะโรค ─────────────────────────────────────────────────────────
+const STAGE_CONFIG = {
+    'ระยะแรก (Stage 1-2)': {
+        pillClass:    'stage-early',
+        pillText:     'ระยะแรก (Stage 1–2)',
+        avatarColor:  '#3B7268',
+        msgIconName:  'check-circle-2',
+        msgIconWrap:  'icon-wrap-green',
+        msgTitle:     'ยอดเยี่ยม! คุณสามารถฝึกได้ครบทุกท่า',
+        msgBody:      'ในระยะนี้ร่างกายยังตอบสนองได้ดี การฝึกสม่ำเสมอจะช่วยชะลออาการได้อย่างมีประสิทธิภาพ',
+        bigTypes:     ['bicep','squat','shoulder','overhead','kneelift','lunge','armextend','sitstand'],
+        loudTypes:    ['phonation','counting','phrases'],
+    },
+    'ระยะกลาง (Stage 3)': {
+        pillClass:    'stage-middle',
+        pillText:     'ระยะกลาง (Stage 3)',
+        avatarColor:  '#D97706',
+        msgIconName:  'alert-circle',
+        msgIconWrap:  'icon-wrap-amber',
+        msgTitle:     'ค่อยๆ ฝึกทีละขั้นตอน',
+        msgBody:      'หลีกเลี่ยงท่าที่ต้องทรงตัวเดี่ยว เน้นท่าที่ควบคุมได้ง่าย หยุดพักทันทีหากรู้สึกเวียนหัว',
+        bigTypes:     ['bicep','squat','shoulder','overhead','kneelift','armextend','sitstand'],
+        loudTypes:    ['phonation','counting','phrases'],
+    },
+    'ระยะสูง (Stage 4-5)': {
+        pillClass:    'stage-late',
+        pillText:     'ระยะสูง (Stage 4–5)',
+        avatarColor:  '#DC2626',
+        msgIconName:  'heart',
+        msgIconWrap:  'icon-wrap-red',
+        msgTitle:     'ทำได้ดีมากเลย ค่อยๆ ทำนะคะ',
+        msgBody:      'เลือกท่าที่ทำได้โดยนั่งหรือมีที่พิงรองรับ ควรมีผู้ดูแลอยู่ด้วยระหว่างฝึก ไม่ต้องรีบ',
+        bigTypes:     ['bicep','shoulder','kneelift','armextend','sitstand'],
+        loudTypes:    ['phonation','counting'],
+    },
+};
+
+// ── Render การ์ดท่า (ใช้ SVG illustration แทน Lucide icon) ───────────────────
+function renderExercises(exercises, containerId, urlPrefix, cardClass, iconClass) {
+    const grid = document.getElementById(containerId);
+    grid.innerHTML = exercises.map(ex => `
+        <a href="${urlPrefix}?type=${ex.type}"
+           class="ex-card ${cardClass}"
+           data-exercise-type="${ex.type}"
+           aria-label="${ex.name} — ${ex.sub}">
+            <div class="ex-icon-wrap ${iconClass}">
+                ${ex.svg}
+            </div>
+            <div class="ex-name">${ex.name}</div>
+            <div class="ex-sub">${ex.sub}</div>
+        </a>
+    `).join('');
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+    if (!user) { window.location.href = 'login.html'; return; }
+
+    const profile   = await getUserProfile(user.uid);
+    const condition = profile?.condition || 'ระยะแรก (Stage 1-2)';
+    const cfg       = STAGE_CONFIG[condition] || STAGE_CONFIG['ระยะแรก (Stage 1-2)'];
+
+    // Profile card
+    const firstName = profile?.firstName || user.email.split('@')[0];
+    const lastName  = profile?.lastName  || '';
+    const initials  = (firstName[0] || '') + (lastName[0] || '');
+
+    document.getElementById('profileAvatar').textContent        = initials;
+    document.getElementById('profileAvatar').style.background   = cfg.avatarColor;
+    document.getElementById('profileName').textContent          = `${firstName} ${lastName}`.trim();
+    document.getElementById('profileMeta').textContent          = profile
+        ? `อายุ ${profile.age} ปี · ${profile.gender}`
+        : user.email;
+
+    const pill = document.getElementById('stagePill');
+    pill.className = `stage-pill ${cfg.pillClass}`;
+    document.getElementById('stagePillText').textContent = cfg.pillText;
+
+    // ซ่อน skeleton, แสดง profile card จริง
+    document.getElementById('skeletonProfile').style.display = 'none';
+    document.getElementById('profileCard').style.display = 'block';
+
+    // Stage message
+    const iconEl   = document.getElementById('stageMsgIcon');
+    const wrapEl   = document.getElementById('stageMsgIconWrap');
+    iconEl.setAttribute('data-lucide', cfg.msgIconName);
+    wrapEl.className = `stage-msg-icon-wrap ${cfg.msgIconWrap}`;
+    document.getElementById('stageMsgTitle').textContent = cfg.msgTitle;
+    document.getElementById('stageMsgBody').textContent  = cfg.msgBody;
+    // ซ่อน skeleton stage msg, แสดงของจริง
+    document.getElementById('skeletonStageMsg').style.display = 'none';
+    document.getElementById('stageMsg').style.display    = 'flex';
+
+    // Render exercises
+    const bigExercises  = ALL_BIG.filter(e  => cfg.bigTypes.includes(e.type));
+    const loudExercises = ALL_LOUD.filter(e => cfg.loudTypes.includes(e.type));
+
+    // กริด BIG: 4 คอลัมน์
+    document.getElementById('bigGrid').style.gridTemplateColumns = 'repeat(4, 1fr)';
+    // กริด LOUD: 4 คอลัมน์ (เท่ากับ BIG)
+    document.getElementById('loudGrid').style.gridTemplateColumns = 'repeat(4, 1fr)';
+
+    renderExercises(bigExercises,  'bigGrid',  'exercise.html', 'ex-teal', 'icon-teal');
+    renderExercises(loudExercises, 'loudGrid', 'speech.html',   'ex-lav',  'icon-lav');
+
+    // เรียก Lucide สำหรับ icon ใน header/stage-msg (ไม่ใช่ exercise cards)
+    lucide.createIcons();
+
+    // P5 + P10: โหลดสถิติ + ทำเครื่องหมายท่าที่ทำวันนี้แล้ว
+    loadStatsAndMarkDone(user.uid, bigExercises, loudExercises);
+});
+
+// ── P5 + P10: loadStats ใหม่ — มี error UI + ทำ badge ท่าที่ทำวันนี้ ─────────────
+async function loadStatsAndMarkDone(uid, bigExercises, loudExercises) {
+    try {
+        const snap    = await db.collection('sessions').where('userId', '==', uid).get();
+        const today   = new Date().toLocaleDateString('th-TH');
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+        let todayCount = 0, weekCount = 0;
+        const todayBigDone  = new Set();
+        const todayLoudDone = new Set();
+
+        snap.forEach(doc => {
+            const d = doc.data();
+            if (d.date === today) {
+                todayCount++;
+                // จับคู่ exercise type จาก exerciseName ที่บันทึกไว้
+                if (d.type === 'lsvt_big' && d.exerciseName) {
+                    bigExercises.forEach(ex => {
+                        if (d.exerciseName.includes(ex.name)) todayBigDone.add(ex.type);
+                    });
+                }
+                if (d.type === 'lsvt_loud' && d.exerciseName) {
+                    loudExercises.forEach(ex => {
+                        if (d.exerciseName.includes(ex.name.replace(/"/g, '')))
+                            todayLoudDone.add(ex.type);
+                    });
+                }
+            }
+            if (d.timestamp && d.timestamp.toDate() >= weekAgo) weekCount++;
+        });
+
+        document.getElementById('statToday').textContent = todayCount;
+        document.getElementById('statWeek').textContent  = weekCount;
+        document.getElementById('statTotal').textContent = snap.size;
+
+        // P10: ทำเครื่องหมาย "ทำแล้ววันนี้" บนการ์ด
+        [...todayBigDone, ...todayLoudDone].forEach(type => markExerciseDone(type));
+
+    } catch (err) {
+        console.error('loadStats error:', err);
+        // P5: แสดง error ให้ผู้ใช้เห็น (ไม่ใช่แค่ console)
+        showToast('⚠️ ไม่สามารถโหลดข้อมูลสถิติได้ กรุณาลองใหม่', 'error');
+        ['statToday', 'statWeek', 'statTotal'].forEach(id => {
+            document.getElementById(id).textContent = '–';
+            document.getElementById(id).title = 'โหลดข้อมูลไม่สำเร็จ';
+        });
+    }
+}
+
+// ── P10: เพิ่ม badge "ทำแล้ว" บนการ์ดท่าที่ฝึกวันนี้แล้ว ─────────────────────
+function markExerciseDone(type) {
+    const card = document.querySelector(`[data-exercise-type="${type}"]`);
+    if (!card || card.querySelector('.ex-done-badge')) return;
+    const badge = document.createElement('span');
+    badge.className = 'ex-done-badge';
+    badge.setAttribute('aria-label', 'ฝึกท่านี้แล้ววันนี้');
+    badge.textContent = '✓ ทำแล้ว';
+    card.appendChild(badge);
+}
+
+// ── P5: Toast notification helper ────────────────────────────────────────────
+function showToast(message, type = 'info', duration = 4000) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.animation = 'toast-slide-in 0.2s ease reverse';
+        setTimeout(() => toast.remove(), 200);
+    }, duration);
+}
+
+// ── P1: Logout พร้อม confirmation dialog ──────────────────────────────────────
+async function handleLogout() {
+    if (!confirm('ต้องการออกจากระบบใช่ไหม?')) return;
+    try {
+        await auth.signOut();
+        window.location.href = 'login.html';
+    } catch (err) {
+        console.error('Logout error:', err);
+        showToast('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่', 'error');
+    }
+}
+</script>
+
+<!-- Toast Notification Container (P5) -->
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+</body>
+</html>
